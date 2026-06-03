@@ -45,7 +45,7 @@ export default async function PaymentsPage() {
           <>
             <span className="w-2 h-2 rounded-full bg-green-500 inline-block" />
             <span className="text-zinc-500">
-              Live data · {splits.length} invoiced orders ·{" "}
+              Live data · {splits.length} active orders ·{" "}
               <span className="font-medium text-zinc-700">
                 {(MARKETPLACE_COMMISSION_RATE * 100).toFixed(2)}% marketplace commission
               </span>{" "}

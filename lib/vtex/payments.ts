@@ -1,4 +1,5 @@
 import { listOrders } from "@/lib/vtex/orders";
+import type { OrderStatus } from "@/lib/types/orders";
 import type {
   WalletBalance,
   OrderSplit,
@@ -7,6 +8,17 @@ import type {
   Dac7Data,
   SplitStatus,
 } from "@/lib/types/payments";
+
+// Statuses that represent an active order generating revenue (not canceled)
+const ACTIVE_STATUSES = new Set<OrderStatus>([
+  "waiting-for-sellers-confirmation",
+  "payment-pending",
+  "payment-approved",
+  "ready-for-handling",
+  "handling",
+  "invoiced",
+  "window-to-cancel",
+]);
 
 // ─── Commission rates ────────────────────────────────────────────────────────
 
@@ -34,7 +46,17 @@ function nextWeekday(from: Date, targetDay: number): Date {
 
 // ─── Split status ────────────────────────────────────────────────────────────
 
-function computeStatus(creationDate: string): SplitStatus {
+/**
+ * Maps a VTEX order status + age to a payment split status.
+ *
+ * - canceled                → excluded before this is called
+ * - invoiced + > 30 days    → paid (approximate — no real disbursement record)
+ * - invoiced + 14–30 days   → available (hold expired, ready for payout)
+ * - invoiced + < 14 days    → pending (EU 14-day retraction hold)
+ * - all other active statuses → pending (not yet invoiced)
+ */
+function computeStatus(vtexStatus: OrderStatus, creationDate: string): SplitStatus {
+  if (vtexStatus !== "invoiced") return "pending";
   const days = daysSince(creationDate);
   if (days > 30) return "paid";
   if (days > 14) return "available";
@@ -145,19 +167,23 @@ export interface PaymentData {
 }
 
 /**
- * Fetches up to 100 invoiced orders for the seller, then derives all payment
- * data by applying the configured commission and PSP fee rates.
+ * Fetches the last 100 orders for the seller (all statuses except canceled),
+ * then derives all payment data by applying the configured commission and PSP
+ * fee rates.
  *
  * Falls back to an empty dataset on error — callers should handle the fallback
  * by merging with mock data if needed.
  */
 export async function fetchPaymentData(): Promise<PaymentData> {
-  // Fetch the last 100 invoiced seller orders
-  const response = await listOrders({ perPage: 100, status: "invoiced" });
+  // Fetch all orders — no status filter so every active status is included
+  const response = await listOrders({ perPage: 100 });
   const orders = response.list;
 
+  // Exclude canceled orders — they generate no revenue
+  const activeOrders = orders.filter((o) => ACTIVE_STATUSES.has(o.status));
+
   // Build splits
-  const splits: OrderSplit[] = orders.map((order) => {
+  const splits: OrderSplit[] = activeOrders.map((order) => {
     const grossAmount = round2(order.totalValue / 100);
     const commissionAmount = round2(grossAmount * MARKETPLACE_COMMISSION_RATE);
     const pspFeeAmount = round2(grossAmount * PSP_FEE_RATE);
@@ -176,7 +202,7 @@ export async function fetchPaymentData(): Promise<PaymentData> {
       pspFeeRate: PSP_FEE_RATE * 100,
       pspFeeAmount,
       netAmount,
-      status: computeStatus(order.creationDate),
+      status: computeStatus(order.status, order.creationDate),
       availableDate,
     };
   });
