@@ -10,18 +10,18 @@ interface ReconciliationTableProps {
 }
 
 function fmt(n: number) {
-  return new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" }).format(n);
+  return new Intl.NumberFormat("en-US", { style: "currency", currency: "EUR" }).format(n);
 }
 
 function fmtDate(dateStr: string) {
-  return new Date(dateStr).toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric" });
+  return new Date(dateStr).toLocaleDateString("en-US", { day: "2-digit", month: "short", year: "numeric" });
 }
 
 function exportCSV(lines: ReconciliationLine[]) {
   const headers = [
-    "Commande", "Date", "SKU", "Produit", "Qté",
-    "PU (€)", "Total ligne (€)", "Commission (€)", "Frais PSP (€)",
-    "Remboursement (€)", "Chargeback (€)", "Net (€)",
+    "Order", "Date", "SKU", "Product", "Qty",
+    "Unit price (€)", "Line total (€)", "Commission (€)", "PSP fees (€)",
+    "Refund (€)", "Chargeback (€)", "Net (€)",
   ];
   const rows = lines.map((l) => [
     l.orderId, l.date, l.sku, `"${l.productName}"`, l.qty,
@@ -86,7 +86,7 @@ export function ReconciliationTable({ lines }: ReconciliationTableProps) {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-400" />
             <input
               type="text"
-              placeholder="Rechercher…"
+              placeholder="Search…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="pl-8 pr-3 py-1.5 text-xs border border-zinc-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 w-52"
@@ -123,15 +123,15 @@ export function ReconciliationTable({ lines }: ReconciliationTableProps) {
         <table className="w-full text-xs min-w-[900px]">
           <thead>
             <tr className="border-b border-zinc-100 bg-zinc-50">
-              <th className="text-left px-4 py-3 font-medium text-zinc-500">Commande</th>
+              <th className="text-left px-4 py-3 font-medium text-zinc-500">Order</th>
               <th className="text-left px-4 py-3 font-medium text-zinc-500">Date</th>
               <th className="text-left px-4 py-3 font-medium text-zinc-500">SKU</th>
-              <th className="text-left px-4 py-3 font-medium text-zinc-500">Produit</th>
-              <th className="text-right px-4 py-3 font-medium text-zinc-500">Qté</th>
-              <th className="text-right px-4 py-3 font-medium text-zinc-500">Total ligne</th>
+              <th className="text-left px-4 py-3 font-medium text-zinc-500">Product</th>
+              <th className="text-right px-4 py-3 font-medium text-zinc-500">Qty</th>
+              <th className="text-right px-4 py-3 font-medium text-zinc-500">Line total</th>
               <th className="text-right px-4 py-3 font-medium text-zinc-500">Commission</th>
               <th className="text-right px-4 py-3 font-medium text-zinc-500">PSP</th>
-              <th className="text-right px-4 py-3 font-medium text-amber-600">Remboursement</th>
+              <th className="text-right px-4 py-3 font-medium text-amber-600">Refund</th>
               <th className="text-right px-4 py-3 font-medium text-red-500">Chargeback</th>
               <th className="text-right px-4 py-3 font-semibold text-green-700">Net</th>
             </tr>
@@ -167,7 +167,7 @@ export function ReconciliationTable({ lines }: ReconciliationTableProps) {
             <tfoot>
               <tr className="border-t-2 border-zinc-200 bg-zinc-50 font-semibold">
                 <td colSpan={5} className="px-4 py-3 text-zinc-600 text-xs">
-                  Total ({filtered.length} ligne{filtered.length > 1 ? "s" : ""})
+                  Total ({filtered.length} line{filtered.length > 1 ? "s" : ""})
                 </td>
                 <td className="px-4 py-3 text-right text-zinc-700">{fmt(totals.lineTotal)}</td>
                 <td className="px-4 py-3 text-right text-red-600">-{fmt(totals.commission)}</td>
@@ -185,7 +185,7 @@ export function ReconciliationTable({ lines }: ReconciliationTableProps) {
         </table>
 
         {filtered.length === 0 && (
-          <div className="text-center py-12 text-sm text-zinc-400">Aucune ligne pour cette recherche.</div>
+          <div className="text-center py-12 text-sm text-zinc-400">No lines for this search.</div>
         )}
       </div>
     </div>

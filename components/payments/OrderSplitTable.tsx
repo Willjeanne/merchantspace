@@ -10,17 +10,17 @@ interface OrderSplitTableProps {
 }
 
 function fmt(n: number) {
-  return new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" }).format(n);
+  return new Intl.NumberFormat("en-US", { style: "currency", currency: "EUR" }).format(n);
 }
 
 function fmtDate(iso: string) {
-  return new Date(iso).toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric" });
+  return new Date(iso).toLocaleDateString("en-US", { day: "2-digit", month: "short", year: "numeric" });
 }
 
 const STATUS_CONFIG: Record<SplitStatus, { label: string; className: string }> = {
-  pending:   { label: "En attente",  className: "bg-amber-50 text-amber-700 border-amber-200" },
-  available: { label: "Disponible",  className: "bg-green-50 text-green-700 border-green-200" },
-  paid:      { label: "Versé",       className: "bg-zinc-100 text-zinc-600 border-zinc-200" },
+  pending:   { label: "Pending",   className: "bg-amber-50 text-amber-700 border-amber-200" },
+  available: { label: "Available", className: "bg-green-50 text-green-700 border-green-200" },
+  paid:      { label: "Paid",      className: "bg-zinc-100 text-zinc-600 border-zinc-200" },
 };
 
 function StatusBadge({ status }: { status: SplitStatus }) {
@@ -33,7 +33,7 @@ function StatusBadge({ status }: { status: SplitStatus }) {
 }
 
 function exportCSV(orders: OrderSplit[]) {
-  const headers = ["Commande", "Date", "Brut (€)", "Commission (%)", "Commission (€)", "Frais PSP (€)", "Net (€)", "Statut"];
+  const headers = ["Order", "Date", "Gross (€)", "Commission (%)", "Commission (€)", "PSP fees (€)", "Net (€)", "Status"];
   const rows = orders.map((o) => [
     o.orderId,
     fmtDate(o.invoicedDate),
@@ -49,7 +49,7 @@ function exportCSV(orders: OrderSplit[]) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = "commandes-split.csv";
+  a.download = "orders-split.csv";
   a.click();
   URL.revokeObjectURL(url);
 }
@@ -76,7 +76,7 @@ export function OrderSplitTable({ orders }: OrderSplitTableProps) {
                   : "bg-white text-zinc-600 border-zinc-200 hover:bg-zinc-50"
               )}
             >
-              {s === "all" ? "Toutes" : STATUS_CONFIG[s].label}
+              {s === "all" ? "All" : STATUS_CONFIG[s].label}
             </button>
           ))}
         </div>
@@ -94,13 +94,13 @@ export function OrderSplitTable({ orders }: OrderSplitTableProps) {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-zinc-100 bg-zinc-50">
-              <th className="text-left px-4 py-3 text-xs font-medium text-zinc-500">Commande</th>
-              <th className="text-left px-4 py-3 text-xs font-medium text-zinc-500">Date facture</th>
-              <th className="text-right px-4 py-3 text-xs font-medium text-zinc-500">Brut</th>
+              <th className="text-left px-4 py-3 text-xs font-medium text-zinc-500">Order</th>
+              <th className="text-left px-4 py-3 text-xs font-medium text-zinc-500">Invoice date</th>
+              <th className="text-right px-4 py-3 text-xs font-medium text-zinc-500">Gross</th>
               <th className="text-right px-4 py-3 text-xs font-medium text-zinc-500">Commission</th>
-              <th className="text-right px-4 py-3 text-xs font-medium text-zinc-500">Frais PSP</th>
+              <th className="text-right px-4 py-3 text-xs font-medium text-zinc-500">PSP fees</th>
               <th className="text-right px-4 py-3 text-xs font-medium text-zinc-500 font-semibold">Net</th>
-              <th className="text-center px-4 py-3 text-xs font-medium text-zinc-500">Statut</th>
+              <th className="text-center px-4 py-3 text-xs font-medium text-zinc-500">Status</th>
               <th className="px-4 py-3" />
             </tr>
           </thead>
@@ -137,24 +137,24 @@ export function OrderSplitTable({ orders }: OrderSplitTableProps) {
                     <td colSpan={8} className="px-6 py-4">
                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs">
                         <div>
-                          <p className="text-zinc-500 mb-1">Date commande</p>
+                          <p className="text-zinc-500 mb-1">Order date</p>
                           <p className="font-medium text-zinc-800">{fmtDate(order.orderDate)}</p>
                         </div>
                         <div>
-                          <p className="text-zinc-500 mb-1">Disponible à partir du</p>
+                          <p className="text-zinc-500 mb-1">Available from</p>
                           <p className="font-medium text-zinc-800">{fmtDate(order.availableDate)}</p>
                         </div>
                         <div>
-                          <p className="text-zinc-500 mb-1">Taux commission</p>
-                          <p className="font-medium text-zinc-800">{order.commissionRate}% produit</p>
+                          <p className="text-zinc-500 mb-1">Commission rate</p>
+                          <p className="font-medium text-zinc-800">{order.commissionRate}% product</p>
                         </div>
                         <div>
-                          <p className="text-zinc-500 mb-1">Taux PSP</p>
+                          <p className="text-zinc-500 mb-1">PSP rate</p>
                           <p className="font-medium text-zinc-800">{order.pspFeeRate}% (Adyen mock)</p>
                         </div>
                       </div>
                       <div className="mt-3 flex items-center gap-2 text-xs">
-                        <span className="text-zinc-500">Décomposition :</span>
+                        <span className="text-zinc-500">Breakdown:</span>
                         <span className="font-mono bg-white rounded px-2 py-0.5 border border-zinc-200">
                           {fmt(order.grossAmount)} − {fmt(order.commissionAmount)} − {fmt(order.pspFeeAmount)} ={" "}
                           <span className="text-green-700 font-semibold">{fmt(order.netAmount)}</span>
@@ -169,7 +169,7 @@ export function OrderSplitTable({ orders }: OrderSplitTableProps) {
         </table>
 
         {filtered.length === 0 && (
-          <div className="text-center py-12 text-sm text-zinc-400">Aucune commande pour ce filtre.</div>
+          <div className="text-center py-12 text-sm text-zinc-400">No orders for this filter.</div>
         )}
       </div>
     </div>

@@ -11,10 +11,10 @@ interface Step2DocumentsProps {
 }
 
 const STATUS_CONFIG: Record<DocStatus, { label: string; icon: React.ComponentType<{ className?: string }>; className: string }> = {
-  required: { label: "Requis", icon: AlertCircle, className: "text-zinc-400" },
-  uploaded: { label: "Uploadé", icon: Clock, className: "text-amber-500" },
-  verified: { label: "Vérifié", icon: CheckCircle2, className: "text-green-600" },
-  rejected: { label: "Rejeté", icon: XCircle, className: "text-red-500" },
+  required: { label: "Required", icon: AlertCircle, className: "text-zinc-400" },
+  uploaded: { label: "Uploaded", icon: Clock, className: "text-amber-500" },
+  verified: { label: "Verified", icon: CheckCircle2, className: "text-green-600" },
+  rejected: { label: "Rejected", icon: XCircle, className: "text-red-500" },
 };
 
 function DocumentCard({
@@ -62,7 +62,7 @@ function DocumentCard({
             <p className="text-sm font-medium text-zinc-800">{doc.label}</p>
             {doc.required && (
               <span className="text-xs text-red-500 bg-red-50 border border-red-100 px-1.5 py-0.5 rounded">
-                Obligatoire
+                Required
               </span>
             )}
           </div>
@@ -76,7 +76,7 @@ function DocumentCard({
 
       {doc.status === "rejected" && doc.rejectionReason && (
         <div className="mb-3 text-xs text-red-700 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
-          Motif de rejet : {doc.rejectionReason}
+          Rejection reason: {doc.rejectionReason}
         </div>
       )}
 
@@ -86,7 +86,7 @@ function DocumentCard({
           <span>{doc.fileName}</span>
           {doc.uploadedAt && (
             <span className="text-green-500">
-              · Vérifié le {new Date(doc.uploadedAt).toLocaleDateString("fr-FR")}
+              · Verified on {new Date(doc.uploadedAt).toLocaleDateString("en-US")}
             </span>
           )}
         </div>
@@ -106,8 +106,8 @@ function DocumentCard({
             <p className="text-xs text-zinc-600 font-medium">{doc.fileName}</p>
           ) : (
             <>
-              <p className="text-xs text-zinc-600 font-medium">Déposer ou cliquer pour uploader</p>
-              <p className="text-xs text-zinc-400 mt-0.5">PDF, JPG, PNG — max 10 Mo</p>
+              <p className="text-xs text-zinc-600 font-medium">Drop or click to upload</p>
+              <p className="text-xs text-zinc-400 mt-0.5">PDF, JPG, PNG — max 10 MB</p>
             </>
           )}
         </label>
@@ -149,8 +149,8 @@ export function Step2Documents({ documents, onChange }: Step2DocumentsProps) {
       {/* Progress */}
       <div className="bg-zinc-50 border border-zinc-200 rounded-xl p-4">
         <div className="flex items-center justify-between mb-2">
-          <span className="text-sm font-medium text-zinc-700">Progression des documents</span>
-          <span className="text-xs text-zinc-500">{verifiedCount}/{documents.length} vérifiés</span>
+          <span className="text-sm font-medium text-zinc-700">Document progress</span>
+          <span className="text-xs text-zinc-500">{verifiedCount}/{documents.length} verified</span>
         </div>
         <div className="h-2 bg-zinc-200 rounded-full overflow-hidden">
           <div
@@ -159,17 +159,17 @@ export function Step2Documents({ documents, onChange }: Step2DocumentsProps) {
           />
         </div>
         <div className="flex gap-4 mt-2 text-xs text-zinc-500">
-          <span>{uploadedCount} uploadés</span>
-          <span className="text-green-600">{verifiedCount} vérifiés</span>
+          <span>{uploadedCount} uploaded</span>
+          <span className="text-green-600">{verifiedCount} verified</span>
           <span className="text-red-500">
-            {documents.filter((d) => d.status === "rejected").length} rejetés
+            {documents.filter((d) => d.status === "rejected").length} rejected
           </span>
         </div>
       </div>
 
       {/* Required */}
       <div>
-        <h3 className="text-sm font-semibold text-zinc-800 mb-3">Documents obligatoires</h3>
+        <h3 className="text-sm font-semibold text-zinc-800 mb-3">Required documents</h3>
         <div className="space-y-3">
           {requiredDocs.map((doc) => (
             <DocumentCard key={doc.id} doc={doc} onUpload={handleUpload} />
@@ -180,7 +180,7 @@ export function Step2Documents({ documents, onChange }: Step2DocumentsProps) {
       {/* Optional */}
       {optionalDocs.length > 0 && (
         <div>
-          <h3 className="text-sm font-semibold text-zinc-800 mb-3">Documents optionnels</h3>
+          <h3 className="text-sm font-semibold text-zinc-800 mb-3">Optional documents</h3>
           <div className="space-y-3">
             {optionalDocs.map((doc) => (
               <DocumentCard key={doc.id} doc={doc} onUpload={handleUpload} />

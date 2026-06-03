@@ -9,11 +9,11 @@ interface PaymentCalendarProps {
 }
 
 function fmt(n: number) {
-  return new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" }).format(n);
+  return new Intl.NumberFormat("en-US", { style: "currency", currency: "EUR" }).format(n);
 }
 
 function fmtDate(dateStr: string) {
-  return new Date(dateStr).toLocaleDateString("fr-FR", {
+  return new Date(dateStr).toLocaleDateString("en-US", {
     weekday: "long",
     day: "numeric",
     month: "long",
@@ -29,28 +29,28 @@ const STATUS_CONFIG: Record<PayoutStatus, {
   badgeClass: string;
 }> = {
   paid: {
-    label: "Versé",
+    label: "Paid",
     icon: CheckCircle2,
     lineColor: "bg-green-200",
     dotColor: "bg-green-500 ring-green-100",
     badgeClass: "bg-green-50 text-green-700 border-green-200",
   },
   processing: {
-    label: "En traitement",
+    label: "Processing",
     icon: Loader2,
     lineColor: "bg-indigo-200",
     dotColor: "bg-indigo-500 ring-indigo-100",
     badgeClass: "bg-indigo-50 text-indigo-700 border-indigo-200",
   },
   scheduled: {
-    label: "Prévu",
+    label: "Scheduled",
     icon: Calendar,
     lineColor: "bg-zinc-200",
     dotColor: "bg-zinc-400 ring-zinc-100",
     badgeClass: "bg-zinc-50 text-zinc-600 border-zinc-200",
   },
   failed: {
-    label: "Échoué",
+    label: "Failed",
     icon: AlertCircle,
     lineColor: "bg-red-200",
     dotColor: "bg-red-500 ring-red-100",
@@ -72,12 +72,12 @@ export function PaymentCalendar({ payouts }: PaymentCalendarProps) {
       {/* Summary */}
       <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-4 flex items-center justify-between">
         <div>
-          <p className="text-xs text-indigo-600 font-medium">Total à venir</p>
+          <p className="text-xs text-indigo-600 font-medium">Upcoming total</p>
           <p className="text-2xl font-bold text-indigo-700 mt-0.5">{fmt(totalScheduled)}</p>
         </div>
         <div className="text-right">
-          <p className="text-xs text-indigo-500">{sorted.filter(p => p.status === "scheduled").length} versements planifiés</p>
-          <p className="text-xs text-indigo-500 mt-1">Fréquence : hebdomadaire</p>
+          <p className="text-xs text-indigo-500">{sorted.filter(p => p.status === "scheduled").length} scheduled payouts</p>
+          <p className="text-xs text-indigo-500 mt-1">Frequency: weekly</p>
         </div>
       </div>
 
@@ -112,7 +112,7 @@ export function PaymentCalendar({ payouts }: PaymentCalendarProps) {
                         </span>
                       </div>
                       <p className="text-sm font-semibold text-zinc-800 mt-1">{fmt(payout.amount)}</p>
-                      <p className="text-xs text-zinc-500 mt-0.5">{payout.orderCount} commande{payout.orderCount > 1 ? "s" : ""}</p>
+                      <p className="text-xs text-zinc-500 mt-0.5">{payout.orderCount} order{payout.orderCount > 1 ? "s" : ""}</p>
                     </div>
                     <div className="text-right shrink-0">
                       <p className="text-xs font-medium text-zinc-700">{fmtDate(payout.estimatedDate)}</p>
@@ -125,7 +125,7 @@ export function PaymentCalendar({ payouts }: PaymentCalendarProps) {
                       <div className="flex items-center gap-2">
                         <Clock className="w-3 h-3 text-zinc-400" />
                         <span className="text-xs text-zinc-500">
-                          Versement prévu après expiration du délai de rétractation (14 j UE)
+                          Payout scheduled after retraction period expires (14-day EU)
                         </span>
                       </div>
                     </div>

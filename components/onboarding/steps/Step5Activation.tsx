@@ -15,14 +15,14 @@ interface Step5ActivationProps {
 }
 
 const RECAP_ROWS = [
-  { label: "Raison sociale", key: "companyName" as keyof LegalInfo },
+  { label: "Company name", key: "companyName" as keyof LegalInfo },
   { label: "SIREN", key: "siren" as keyof LegalInfo },
-  { label: "Numéro TVA", key: "vatNumber" as keyof LegalInfo },
-  { label: "Adresse", key: "registeredAddress" as keyof LegalInfo },
-  { label: "Ville", key: "city" as keyof LegalInfo },
-  { label: "Pays", key: "country" as keyof LegalInfo },
-  { label: "Représentant", key: "repFirstName" as keyof LegalInfo },
-  { label: "Email représentant", key: "repEmail" as keyof LegalInfo },
+  { label: "VAT number", key: "vatNumber" as keyof LegalInfo },
+  { label: "Address", key: "registeredAddress" as keyof LegalInfo },
+  { label: "City", key: "city" as keyof LegalInfo },
+  { label: "Country", key: "country" as keyof LegalInfo },
+  { label: "Representative", key: "repFirstName" as keyof LegalInfo },
+  { label: "Rep. email", key: "repEmail" as keyof LegalInfo },
 ];
 
 function deriveSellerIdFromName(name: string | undefined): string {
@@ -57,9 +57,9 @@ export function Step5Activation({ legalInfo, sellerCreated, sellerId, onActivate
             <CheckCircle2 className="w-8 h-8 text-green-600" />
           </div>
           <div>
-            <h3 className="text-xl font-bold text-zinc-900">Compte vendeur activé !</h3>
+            <h3 className="text-xl font-bold text-zinc-900">Seller account activated!</h3>
             <p className="text-sm text-zinc-600 mt-1">
-              Votre boutique est maintenant active sur la marketplace <strong>franceretail</strong>.
+              Your store is now active on the <strong>franceretail</strong> marketplace.
             </p>
           </div>
           <div className="bg-zinc-50 border border-zinc-200 rounded-xl px-6 py-3 text-center">
@@ -69,11 +69,11 @@ export function Step5Activation({ legalInfo, sellerCreated, sellerId, onActivate
         </div>
 
         <div className="bg-green-50 border border-green-200 rounded-xl p-4 space-y-2">
-          <p className="text-sm font-semibold text-green-800">Prochaines étapes</p>
+          <p className="text-sm font-semibold text-green-800">Next steps</p>
           <ul className="space-y-1.5 text-xs text-green-700">
-            <li className="flex items-center gap-2"><CheckCircle2 className="w-3.5 h-3.5 shrink-0" /> Ajoutez vos premiers produits dans l'onglet Catalogue</li>
-            <li className="flex items-center gap-2"><CheckCircle2 className="w-3.5 h-3.5 shrink-0" /> Configurez votre entrepôt dans Fulfillment</li>
-            <li className="flex items-center gap-2"><CheckCircle2 className="w-3.5 h-3.5 shrink-0" /> Suivez vos paiements dans l'onglet Paiements</li>
+            <li className="flex items-center gap-2"><CheckCircle2 className="w-3.5 h-3.5 shrink-0" /> Add your first products in the Catalog tab</li>
+            <li className="flex items-center gap-2"><CheckCircle2 className="w-3.5 h-3.5 shrink-0" /> Configure your warehouse in Fulfillment</li>
+            <li className="flex items-center gap-2"><CheckCircle2 className="w-3.5 h-3.5 shrink-0" /> Track your payments in the Payments tab</li>
           </ul>
         </div>
 
@@ -84,7 +84,7 @@ export function Step5Activation({ legalInfo, sellerCreated, sellerId, onActivate
           className="inline-flex items-center gap-2 text-xs text-indigo-600 hover:text-indigo-800 transition-colors"
         >
           <ExternalLink className="w-3.5 h-3.5" />
-          Voir dans VTEX Admin
+          View in VTEX Admin
         </a>
       </div>
     );
@@ -94,7 +94,7 @@ export function Step5Activation({ legalInfo, sellerCreated, sellerId, onActivate
     <div className="space-y-6">
       {/* Recap */}
       <div>
-        <h3 className="text-sm font-semibold text-zinc-800 mb-3">Récapitulatif</h3>
+        <h3 className="text-sm font-semibold text-zinc-800 mb-3">Summary</h3>
         <div className="bg-white border border-zinc-200 rounded-xl divide-y divide-zinc-50">
           {RECAP_ROWS.map(({ label, key }) => {
             const val =
@@ -105,7 +105,7 @@ export function Step5Activation({ legalInfo, sellerCreated, sellerId, onActivate
               <div key={key} className="flex items-center justify-between px-4 py-3 gap-4">
                 <span className="text-xs text-zinc-500 shrink-0">{label}</span>
                 <span className="text-xs font-medium text-zinc-800 text-right">
-                  {val || <span className="text-zinc-300 italic">Non renseigné</span>}
+                  {val || <span className="text-zinc-300 italic">Not provided</span>}
                 </span>
               </div>
             );
@@ -133,9 +133,9 @@ export function Step5Activation({ legalInfo, sellerCreated, sellerId, onActivate
           <div className="flex items-start gap-3">
             <Rocket className="w-5 h-5 text-indigo-600 shrink-0 mt-0.5" />
             <div>
-              <p className="text-sm font-semibold text-indigo-800">Tout est prêt !</p>
+              <p className="text-sm font-semibold text-indigo-800">All set!</p>
               <p className="text-xs text-indigo-700 mt-1">
-                Cliquez sur «&nbsp;Activer le compte vendeur&nbsp;» pour créer votre compte via l'API VTEX
+                Click "Activate seller account" to create your account via the VTEX API
                 ({summary || "franceretailer1388"}).
               </p>
             </div>
@@ -155,12 +155,12 @@ export function Step5Activation({ legalInfo, sellerCreated, sellerId, onActivate
           {pending ? (
             <>
               <Loader2 className="w-4 h-4 animate-spin" />
-              Activation en cours…
+              Activating…
             </>
           ) : (
             <>
               <Rocket className="w-4 h-4" />
-              Activer le compte vendeur
+              Activate seller account
             </>
           )}
         </button>

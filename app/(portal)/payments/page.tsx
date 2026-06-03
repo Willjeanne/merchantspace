@@ -17,16 +17,16 @@ export default function PaymentsPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Paiements"
-        description="Suivi des versements, commissions et conformité fiscale"
+        title="Payments"
+        description="Track payouts, commissions and tax compliance"
       />
 
       <Tabs defaultValue="overview">
         <TabsList className="bg-zinc-100 border border-zinc-200">
-          <TabsTrigger value="overview">Vue d'ensemble</TabsTrigger>
-          <TabsTrigger value="orders">Commandes</TabsTrigger>
-          <TabsTrigger value="calendar">Calendrier</TabsTrigger>
-          <TabsTrigger value="reconciliation">Réconciliation</TabsTrigger>
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="orders">Orders</TabsTrigger>
+          <TabsTrigger value="calendar">Calendar</TabsTrigger>
+          <TabsTrigger value="reconciliation">Reconciliation</TabsTrigger>
           <TabsTrigger value="dac7">DAC7</TabsTrigger>
         </TabsList>
 

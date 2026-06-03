@@ -47,20 +47,20 @@ function ContractCard({
         {signed ? (
           <div className="flex items-center gap-1.5 shrink-0">
             <CheckCircle2 className="w-4 h-4 text-green-600" />
-            <span className="text-xs font-medium text-green-700">Signé</span>
+            <span className="text-xs font-medium text-green-700">Signed</span>
           </div>
         ) : (
           <div className="flex items-center gap-1.5 shrink-0">
             <Clock className="w-4 h-4 text-zinc-400" />
-            <span className="text-xs text-zinc-500">En attente</span>
+            <span className="text-xs text-zinc-500">Pending</span>
           </div>
         )}
       </div>
 
       {signed && contract.signedAt && (
         <div className="text-xs text-green-700 bg-green-50 border border-green-100 rounded-lg px-3 py-2 mb-4">
-          Signé par <span className="font-medium">{contract.signerName}</span> le{" "}
-          {new Date(contract.signedAt).toLocaleDateString("fr-FR", {
+          Signed by <span className="font-medium">{contract.signerName}</span> on{" "}
+          {new Date(contract.signedAt).toLocaleDateString("en-US", {
             day: "numeric",
             month: "long",
             year: "numeric",
@@ -75,27 +75,27 @@ function ContractCard({
         <div className="mb-4 bg-zinc-50 border border-zinc-200 rounded-lg p-4 text-xs text-zinc-600 space-y-2 max-h-48 overflow-y-auto">
           <p className="font-semibold text-zinc-800 text-center mb-3">{contract.title}</p>
           <p>
-            Entre <strong>franceretail SAS</strong> (ci-après «&nbsp;la Marketplace&nbsp;») et{" "}
-            <strong>{signerName || "[Raison sociale]"}</strong> (ci-après «&nbsp;le Vendeur&nbsp;»), il est convenu ce qui suit :
+            Between <strong>franceretail SAS</strong> (hereinafter "the Marketplace") and{" "}
+            <strong>{signerName || "[Company name]"}</strong> (hereinafter "the Seller"), the following is agreed:
           </p>
           <p>
-            <strong>Article 1 — Objet.</strong> Le présent accord a pour objet de définir les conditions dans lesquelles
-            le Vendeur met en vente ses produits via la Marketplace franceretail.
+            <strong>Article 1 — Purpose.</strong> This agreement defines the conditions under which the Seller lists
+            its products for sale via the franceretail Marketplace.
           </p>
           <p>
-            <strong>Article 2 — Commission.</strong> Une commission de 12 % (Toutes Taxes Comprises) sera prélevée sur
-            chaque transaction réalisée via la Marketplace.
+            <strong>Article 2 — Commission.</strong> A commission of 12% (inclusive of all taxes) will be deducted from
+            each transaction completed via the Marketplace.
           </p>
           <p>
-            <strong>Article 3 — Paiements.</strong> Les paiements sont effectués de manière hebdomadaire, après
-            expiration du délai de rétractation légal de 14 jours (UE 2011/83).
+            <strong>Article 3 — Payments.</strong> Payments are made on a weekly basis, following the expiry of the
+            statutory 14-day withdrawal period (EU 2011/83).
           </p>
           <p>
-            <strong>Article 4 — Durée.</strong> Le présent accord est conclu pour une durée indéterminée, résiliable
-            par l'une ou l'autre des parties moyennant un préavis de 30 jours.
+            <strong>Article 4 — Duration.</strong> This agreement is concluded for an indefinite period and may be
+            terminated by either party with 30 days' notice.
           </p>
           <p className="text-zinc-400 italic">
-            [Document généré à titre de démonstration — non contractuellement opposable]
+            [Generated for demonstration purposes — not legally binding]
           </p>
         </div>
       )}
@@ -107,14 +107,14 @@ function ContractCard({
           className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-zinc-200 text-xs font-medium text-zinc-600 hover:bg-zinc-50 transition-colors"
         >
           <Eye className="w-3.5 h-3.5" />
-          {previewing ? "Masquer" : "Prévisualiser"}
+          {previewing ? "Hide" : "Preview"}
         </button>
         <button
           type="button"
           className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-zinc-200 text-xs font-medium text-zinc-600 hover:bg-zinc-50 transition-colors"
         >
           <Download className="w-3.5 h-3.5" />
-          Télécharger PDF
+          Download PDF
         </button>
         {!signed && (
           <button
@@ -123,7 +123,7 @@ function ContractCard({
             className="inline-flex items-center gap-2 px-4 py-1.5 rounded-lg bg-indigo-600 text-white text-xs font-medium hover:bg-indigo-700 transition-colors ml-auto"
           >
             <PenLine className="w-3.5 h-3.5" />
-            Signer électroniquement
+            Sign electronically
           </button>
         )}
       </div>
@@ -140,7 +140,7 @@ export function Step4Contracts({ contracts, signerName, onContractsUpdate }: Ste
               ...c,
               status: "signed" as const,
               signedAt: new Date().toISOString(),
-              signerName: signerName || "Représentant légal",
+              signerName: signerName || "Legal representative",
             }
           : c
       )
@@ -155,8 +155,8 @@ export function Step4Contracts({ contracts, signerName, onContractsUpdate }: Ste
       {/* Header */}
       <div className="bg-zinc-50 border border-zinc-200 rounded-xl p-4 flex items-center justify-between">
         <div>
-          <p className="text-sm font-medium text-zinc-700">Contrats à signer</p>
-          <p className="text-xs text-zinc-500 mt-0.5">Signature électronique avec valeur légale (mock eIDAS)</p>
+          <p className="text-sm font-medium text-zinc-700">Contracts to sign</p>
+          <p className="text-xs text-zinc-500 mt-0.5">Electronic signature with legal value (mock eIDAS)</p>
         </div>
         <span className={cn(
           "text-sm font-semibold",
@@ -170,9 +170,9 @@ export function Step4Contracts({ contracts, signerName, onContractsUpdate }: Ste
         <div className="flex items-center gap-3 bg-green-50 border border-green-200 rounded-xl p-4">
           <CheckCircle2 className="w-5 h-5 text-green-500 shrink-0" />
           <div>
-            <p className="text-sm font-semibold text-green-800">Tous les contrats ont été signés</p>
+            <p className="text-sm font-semibold text-green-800">All contracts have been signed</p>
             <p className="text-xs text-green-700 mt-0.5">
-              Vous pouvez procéder à l'étape finale d'activation.
+              You can proceed to the final activation step.
             </p>
           </div>
         </div>

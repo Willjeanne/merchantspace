@@ -22,36 +22,36 @@ import { Step5Activation } from "./steps/Step5Activation";
 const INITIAL_DOCUMENTS: KycDocument[] = [
   {
     id: "kbis",
-    label: "Extrait Kbis (< 3 mois)",
-    description: "Preuve d'existence légale de l'entreprise",
+    label: "Kbis extract (< 3 months)",
+    description: "Proof of legal existence of the company",
     required: true,
     status: "required",
   },
   {
     id: "id-rep",
-    label: "Pièce d'identité du représentant légal",
-    description: "CNI ou passeport en cours de validité",
+    label: "Legal representative's identity document",
+    description: "Valid national ID or passport",
     required: true,
     status: "required",
   },
   {
     id: "iban",
-    label: "RIB / IBAN",
-    description: "Relevé d'identité bancaire pour les versements",
+    label: "Bank details / IBAN",
+    description: "Bank account details for payouts",
     required: true,
     status: "required",
   },
   {
     id: "attestation-urssaf",
-    label: "Attestation URSSAF",
-    description: "Attestation de vigilance (< 6 mois)",
+    label: "URSSAF certificate",
+    description: "Vigilance certificate (< 6 months)",
     required: false,
     status: "required",
   },
   {
     id: "assurance",
-    label: "Attestation d'assurance RC Pro",
-    description: "Responsabilité civile professionnelle",
+    label: "Professional liability insurance certificate",
+    description: "Professional civil liability",
     required: false,
     status: "required",
   },
@@ -60,26 +60,26 @@ const INITIAL_DOCUMENTS: KycDocument[] = [
 const INITIAL_KYC_CHECKS: KycCheck[] = [
   {
     id: "siren-check",
-    label: "Vérification SIREN / SIRET",
-    description: "Validation de l'existence de l'entreprise auprès de l'INSEE",
+    label: "SIREN / SIRET verification",
+    description: "Validation of company existence with INSEE",
     status: "not_started",
   },
   {
     id: "sanctions-check",
-    label: "Screening sanctions & listes noires",
-    description: "Vérification contre les listes EU, ONU et OFAC",
+    label: "Sanctions & blacklist screening",
+    description: "Verification against EU, UN and OFAC lists",
     status: "not_started",
   },
   {
     id: "identity-check",
-    label: "Vérification d'identité du représentant",
-    description: "Validation documentaire + liveness check",
+    label: "Representative identity verification",
+    description: "Document validation + liveness check",
     status: "not_started",
   },
   {
     id: "aml-check",
-    label: "Contrôle AML (Anti-Money Laundering)",
-    description: "Analyse de risque de blanchiment d'argent",
+    label: "AML check (Anti-Money Laundering)",
+    description: "Money laundering risk analysis",
     status: "not_started",
   },
 ];
@@ -87,14 +87,14 @@ const INITIAL_KYC_CHECKS: KycCheck[] = [
 const INITIAL_CONTRACTS: Contract[] = [
   {
     id: "marketplace-agreement",
-    title: "Contrat de vente Marketplace",
-    description: "Conditions générales de vente sur la plateforme franceretail — commissions, SLA, responsabilités",
+    title: "Marketplace Seller Agreement",
+    description: "General terms of sale on the franceretail platform — commissions, SLA, responsibilities",
     status: "pending",
   },
   {
     id: "data-processing",
-    title: "Accord de traitement des données (DPA)",
-    description: "Traitement des données personnelles acheteurs — RGPD article 28",
+    title: "Data Processing Agreement (DPA)",
+    description: "Processing of buyer personal data — GDPR Article 28",
     status: "pending",
   },
 ];
@@ -102,11 +102,11 @@ const INITIAL_CONTRACTS: Contract[] = [
 // ─── Steps config ─────────────────────────────────────────────────────────────
 
 const STEPS: { step: WizardStep; label: string; description: string }[] = [
-  { step: 1, label: "Informations légales", description: "Entité & représentant" },
-  { step: 2, label: "Documents KYC", description: "Pièces justificatives" },
-  { step: 3, label: "Vérifications", description: "KYC/KYB automatisé" },
-  { step: 4, label: "Contrats", description: "Signature électronique" },
-  { step: 5, label: "Activation", description: "Création du compte" },
+  { step: 1, label: "Legal information", description: "Entity & representative" },
+  { step: 2, label: "KYC documents", description: "Supporting documents" },
+  { step: 3, label: "Verifications", description: "Automated KYC/KYB" },
+  { step: 4, label: "Contracts", description: "E-signature" },
+  { step: 5, label: "Activation", description: "Account creation" },
 ];
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -253,7 +253,7 @@ export function KycWizard() {
               disabled={state.currentStep === 1}
               className="px-4 py-2 text-sm font-medium text-zinc-600 border border-zinc-200 rounded-lg hover:bg-zinc-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >
-              Précédent
+              Previous
             </button>
             <button
               type="button"
@@ -261,7 +261,7 @@ export function KycWizard() {
               disabled={!canAdvance()}
               className="px-6 py-2 text-sm font-medium bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >
-              {state.currentStep === 4 ? "Passer à l'activation" : "Continuer"}
+              {state.currentStep === 4 ? "Proceed to activation" : "Continue"}
             </button>
           </div>
         )}

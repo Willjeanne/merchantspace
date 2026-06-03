@@ -35,35 +35,35 @@ function mockOcrExtract(): Partial<LegalInfo> {
 
 const FIELD_GROUPS = [
   {
-    title: "Entité juridique",
+    title: "Legal entity",
     fields: [
-      { key: "companyName", label: "Raison sociale", placeholder: "Ex : Boutique Sport FR SAS", required: true },
-      { key: "tradeName", label: "Nom commercial", placeholder: "Ex : SportZone" },
-      { key: "siren", label: "SIREN", placeholder: "9 chiffres", required: true },
-      { key: "siret", label: "SIRET", placeholder: "14 chiffres" },
-      { key: "vatNumber", label: "Numéro TVA intra", placeholder: "FR + 11 chiffres" },
-      { key: "legalForm", label: "Forme juridique", placeholder: "Ex : SAS, SARL, EI…" },
-      { key: "incorporationDate", label: "Date de création", placeholder: "AAAA-MM-JJ", type: "date" },
+      { key: "companyName", label: "Company name", placeholder: "Ex: Boutique Sport FR SAS", required: true },
+      { key: "tradeName", label: "Trade name", placeholder: "Ex: SportZone" },
+      { key: "siren", label: "SIREN", placeholder: "9 digits", required: true },
+      { key: "siret", label: "SIRET", placeholder: "14 digits" },
+      { key: "vatNumber", label: "VAT number", placeholder: "FR + 11 digits" },
+      { key: "legalForm", label: "Legal form", placeholder: "Ex: SAS, SARL, EI…" },
+      { key: "incorporationDate", label: "Incorporation date", placeholder: "YYYY-MM-DD", type: "date" },
     ],
   },
   {
-    title: "Adresse du siège",
+    title: "Registered address",
     fields: [
-      { key: "registeredAddress", label: "Adresse", placeholder: "12 Rue de la Paix", required: true },
-      { key: "postalCode", label: "Code postal", placeholder: "75002" },
-      { key: "city", label: "Ville", placeholder: "Paris", required: true },
-      { key: "country", label: "Pays (code ISO)", placeholder: "FR" },
+      { key: "registeredAddress", label: "Address", placeholder: "12 Rue de la Paix", required: true },
+      { key: "postalCode", label: "Postal code", placeholder: "75002" },
+      { key: "city", label: "City", placeholder: "Paris", required: true },
+      { key: "country", label: "Country (ISO code)", placeholder: "FR" },
     ],
   },
   {
-    title: "Représentant légal",
+    title: "Legal representative",
     fields: [
-      { key: "repFirstName", label: "Prénom", placeholder: "Jean", required: true },
-      { key: "repLastName", label: "Nom", placeholder: "Dupont", required: true },
-      { key: "repDateOfBirth", label: "Date de naissance", placeholder: "AAAA-MM-JJ", type: "date" },
-      { key: "repNationality", label: "Nationalité (code ISO)", placeholder: "FR" },
+      { key: "repFirstName", label: "First name", placeholder: "Jean", required: true },
+      { key: "repLastName", label: "Last name", placeholder: "Dupont", required: true },
+      { key: "repDateOfBirth", label: "Date of birth", placeholder: "YYYY-MM-DD", type: "date" },
+      { key: "repNationality", label: "Nationality (ISO code)", placeholder: "FR" },
       { key: "repEmail", label: "Email", placeholder: "jean.dupont@example.com", type: "email", required: true },
-      { key: "repPhone", label: "Téléphone", placeholder: "+33612345678" },
+      { key: "repPhone", label: "Phone", placeholder: "+33612345678" },
     ],
   },
 ] as const;
@@ -91,9 +91,9 @@ export function Step1Legal({ data, onChange }: Step1LegalProps) {
     <div className="space-y-6">
       {/* Seller type */}
       <div>
-        <p className="text-sm font-medium text-zinc-700 mb-3">Type de vendeur</p>
+        <p className="text-sm font-medium text-zinc-700 mb-3">Seller type</p>
         <div className="grid grid-cols-2 gap-3">
-          {([["legal_entity", "Entreprise", Building2], ["individual", "Particulier / Auto-entrepreneur", User]] as const).map(
+          {([["legal_entity", "Business", Building2], ["individual", "Individual / Sole trader", User]] as const).map(
             ([type, label, Icon]) => (
               <button
                 key={type}
@@ -118,9 +118,9 @@ export function Step1Legal({ data, onChange }: Step1LegalProps) {
       {/* OCR shortcut */}
       <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-4 flex items-center justify-between gap-4">
         <div>
-          <p className="text-sm font-medium text-indigo-800">Remplissage automatique via Kbis</p>
+          <p className="text-sm font-medium text-indigo-800">Auto-fill from Kbis document</p>
           <p className="text-xs text-indigo-600 mt-0.5">
-            Uploadez votre extrait Kbis — notre OCR pré-remplit le formulaire
+            Upload your Kbis extract — our OCR pre-fills the form
           </p>
         </div>
         <button
@@ -134,14 +134,14 @@ export function Step1Legal({ data, onChange }: Step1LegalProps) {
           ) : (
             <Wand2 className="w-4 h-4" />
           )}
-          {scanning ? "Analyse en cours…" : scanned ? "Rescanner" : "Scanner un Kbis (démo)"}
+          {scanning ? "Analysing…" : scanned ? "Re-scan" : "Scan a Kbis (demo)"}
         </button>
       </div>
 
       {scanned && (
         <div className="flex items-center gap-2 text-xs text-green-700 bg-green-50 border border-green-200 rounded-lg px-3 py-2">
           <span className="text-green-500">✓</span>
-          Données extraites du Kbis — vérifiez et corrigez si nécessaire.
+          Data extracted from Kbis — verify and correct if needed.
         </div>
       )}
 
