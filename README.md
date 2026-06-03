@@ -15,7 +15,8 @@ A modern, white-label Seller Portal built on top of VTEX native APIs. Replaces t
 | **Catalog** | List / create / edit products & SKUs, inline price & stock editing, brands CRUD, category tree, image upload |
 | **Orders** | Order list with status filters, order detail |
 | **Fulfillment** | Warehouse CRUD, dock CRUD, shipping policies |
-| **Onboarding** | Seller profile, integration checklist, Adyen payout schedule (mock) |
+| **Payments** | Order splits with marketplace commission (1.15%) + PSP fee (0.2%), payout calendar, reconciliation table, DAC7 compliance tracking |
+| **Onboarding** | 5-step KYC wizard — legal info, document upload, automated checks, e-signature, VTEX seller account activation |
 
 ---
 
@@ -25,10 +26,10 @@ You need **two VTEX accounts**:
 
 | Account | Role | Used for |
 |---------|------|----------|
-| **Marketplace account** | `franceretail` (your main marketplace) | Reading orders, catalog browsing |
-| **Seller account** | `franceretailer1388` (the seller) | Managing products, SKUs, prices, stock |
+| **Marketplace account** | your main marketplace (e.g. `acme-marketplace`) | Reading orders, catalog browsing |
+| **Seller account** | the seller account (e.g. `acme-seller`) | Managing products, SKUs, prices, stock |
 
-Adapt the account names in `.env.local` — the code is fully parameterized via env vars.
+All account names are read from `.env.local` — no code edits required.
 
 ---
 
@@ -80,19 +81,19 @@ Required License Manager resources:
 Open `.env.local` and set:
 
 ```env
-# ── Marketplace account (e.g. franceretail) ──────────────────────────────────
-VTEX_ACCOUNT=franceretail
-VTEX_APP_KEY=vtexappkey-franceretail-XXXXXX
+# ── Marketplace account ───────────────────────────────────────────────────────
+VTEX_ACCOUNT=your-marketplace-account
+VTEX_APP_KEY=vtexappkey-your-marketplace-account-XXXXXX
 VTEX_APP_TOKEN=<token>
 VTEX_ENVIRONMENT=vtexcommercestable
 
-# ── Seller account (e.g. franceretailer1388) ─────────────────────────────────
-VTEX_SELLER_ACCOUNT=franceretailer1388
-VTEX_SELLER_APP_KEY=vtexappkey-franceretailer1388-XXXXXX
+# ── Seller account ────────────────────────────────────────────────────────────
+VTEX_SELLER_ACCOUNT=your-seller-account
+VTEX_SELLER_APP_KEY=vtexappkey-your-seller-account-XXXXXX
 VTEX_SELLER_APP_TOKEN=<token>
 
 # Seller ID as it appears in the marketplace (check VTEX Admin → Marketplace → Sellers)
-VTEX_SELLER_ID=franceretailer1388
+VTEX_SELLER_ID=your-seller-id
 
 # ── Auth ──────────────────────────────────────────────────────────────────────
 # Generate with: openssl rand -base64 32
@@ -100,7 +101,8 @@ NEXTAUTH_SECRET=<random_32_byte_string>
 NEXTAUTH_URL=http://localhost:3000
 
 # ── Public (used client-side) ─────────────────────────────────────────────────
-NEXT_PUBLIC_VTEX_ACCOUNT=franceretail
+NEXT_PUBLIC_VTEX_ACCOUNT=your-marketplace-account
+NEXT_PUBLIC_VTEX_SELLER_ACCOUNT=your-seller-account
 ```
 
 ### 5. Run locally
@@ -154,7 +156,8 @@ app/
 │   ├── catalog/           → Product list, detail/edit, new product
 │   ├── orders/            → Order list + detail
 │   ├── fulfillment/       → Warehouses, docks, shipping policies
-│   ├── onboarding/        → Setup checklist
+│   ├── payments/          → Order splits, payout calendar, reconciliation, DAC7
+│   ├── onboarding/        → 5-step KYC wizard + seller activation
 │   └── settings/          → (placeholder)
 └── api/auth/              → OTP send/validate, logout route handlers
 
@@ -162,8 +165,11 @@ lib/
 ├── vtex/
 │   ├── client.ts          → vtexFetch (marketplace) + vtexSellerFetch (seller)
 │   ├── catalog.ts         → All catalog API wrappers
-│   └── orders.ts          → OMS API wrappers
+│   ├── orders.ts          → OMS API wrappers
+│   └── payments.ts        → Order splits + commission calculation
+├── config.ts              → Server-side account name constants (from env vars)
 ├── actions/               → Next.js Server Actions (forms)
+├── mock/                  → Mock data for demo mode (Adyen settlements, onboarding)
 └── types/                 → TypeScript types for VTEX API responses
 
 proxy.ts                   → Next.js middleware (auth guard)
@@ -175,9 +181,10 @@ proxy.ts                   → Next.js middleware (auth guard)
 
 ## Known limitations
 
-- **Image upload** requires the user to be logged in with a VTEX session that has write access to the seller's catalog images. Images are uploaded via the `vtex.catalog-images` VTEX IO service and must end up on `vtexassets.com` before being attached to a product.
+- **Image upload** currently supports URL-based import only. File upload (multipart) is not yet implemented.
 - **Multi-seller** is not supported — this is a mono-seller portal by design.
-- The **Onboarding** module uses mock data for the Adyen payment schedule. Connect to the real Adyen API for production.
+- The **Payments** module fetches real VTEX orders and applies configurable commission rates, but payout disbursement is simulated (no live Adyen Reporting API integration yet).
+- The **Onboarding** KYC wizard is fully functional for demo and UI purposes; production use requires connecting a real KYB provider and e-signature service.
 
 ---
 
