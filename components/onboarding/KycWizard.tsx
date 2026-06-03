@@ -88,7 +88,7 @@ const INITIAL_CONTRACTS: Contract[] = [
   {
     id: "marketplace-agreement",
     title: "Marketplace Seller Agreement",
-    description: "General terms of sale on the franceretail platform — commissions, SLA, responsibilities",
+    description: `General terms of sale on the ${process.env.NEXT_PUBLIC_VTEX_ACCOUNT ?? "marketplace"} platform — commissions, SLA, responsibilities`,
     status: "pending",
   },
   {

@@ -93,7 +93,7 @@ export default async function DashboardPage() {
     <>
       <PageHeader
         title="Dashboard"
-        description="Overview of your seller performance on franceretail"
+        description={`Overview of your seller performance on ${process.env.VTEX_ACCOUNT ?? "your marketplace"}`}
       />
 
       {/* KPI row */}

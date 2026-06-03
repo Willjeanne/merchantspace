@@ -99,13 +99,13 @@ export const ONBOARDING_CHECKLIST: ChecklistItem[] = [
   {
     id: "store",
     label: "Store configured",
-    description: "Seller account franceretailer1388 set up on VTEX marketplace",
+    description: "Seller account set up on VTEX marketplace",
     completed: true,
   },
   {
     id: "fulfillment",
     label: "Fulfillment endpoint configured",
-    description: "http://fulfillment.vtexcommerce.com.br/api/fulfillment?an=franceretailer1388&affiliateId=FRN&sc=1",
+    description: "Fulfillment endpoint configured and connected to your VTEX seller account",
     completed: true,
   },
   {

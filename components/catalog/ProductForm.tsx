@@ -90,7 +90,7 @@ export function ProductForm({ categories, brands }: ProductFormProps) {
             <p className="mt-0.5">
               Create at least one category in{" "}
               <a
-                href="https://franceretailer1388.myvtex.com/admin/Site/CategoryForm.aspx"
+                href={`https://${process.env.NEXT_PUBLIC_VTEX_SELLER_ACCOUNT ?? ""}.myvtex.com/admin/Site/CategoryForm.aspx`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="underline font-medium"
@@ -159,7 +159,7 @@ export function ProductForm({ categories, brands }: ProductFormProps) {
               <p className="text-xs text-amber-600 mt-1">
                 No brands found.{" "}
                 <a
-                  href="https://franceretailer1388.myvtex.com/admin/Site/BrandForm.aspx"
+                  href={`https://${process.env.NEXT_PUBLIC_VTEX_SELLER_ACCOUNT ?? ""}.myvtex.com/admin/Site/BrandForm.aspx`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="underline"

@@ -81,7 +81,7 @@ export default async function FulfillmentPage() {
             <p className="text-xs mt-1">
               Create shipping policies in{" "}
               <a
-                href="https://franceretailer1388.myvtex.com/admin/logistics#/shipping-policies"
+                href={`https://${process.env.VTEX_SELLER_ACCOUNT ?? process.env.VTEX_SELLER_ID ?? ""}.myvtex.com/admin/logistics#/shipping-policies`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-indigo-600 hover:underline"

@@ -138,7 +138,7 @@ export async function vtexFetch<T>(
 // ---------------------------------------------------------------------------
 
 /**
- * Fetch using the SELLER account credentials (franceretailer1388).
+ * Fetch using the SELLER account credentials (VTEX_SELLER_ACCOUNT).
  * Used for catalog management: create/edit products, SKUs in the seller's account.
  */
 export async function vtexSellerFetch<T>(

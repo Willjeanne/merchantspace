@@ -59,7 +59,7 @@ export function Step5Activation({ legalInfo, sellerCreated, sellerId, onActivate
           <div>
             <h3 className="text-xl font-bold text-zinc-900">Seller account activated!</h3>
             <p className="text-sm text-zinc-600 mt-1">
-              Your store is now active on the <strong>franceretail</strong> marketplace.
+              Your store is now active on the <strong>{process.env.NEXT_PUBLIC_VTEX_ACCOUNT ?? "the marketplace"}</strong> marketplace.
             </p>
           </div>
           <div className="bg-zinc-50 border border-zinc-200 rounded-xl px-6 py-3 text-center">
@@ -78,7 +78,7 @@ export function Step5Activation({ legalInfo, sellerCreated, sellerId, onActivate
         </div>
 
         <a
-          href={`https://franceretail.myvtex.com/admin/seller-register/sellers/${sellerId}`}
+          href={`https://${process.env.NEXT_PUBLIC_VTEX_ACCOUNT ?? ""}.myvtex.com/admin/seller-register/sellers/${sellerId}`}
           target="_blank"
           rel="noopener noreferrer"
           className="inline-flex items-center gap-2 text-xs text-indigo-600 hover:text-indigo-800 transition-colors"
@@ -124,7 +124,7 @@ export function Step5Activation({ legalInfo, sellerCreated, sellerId, onActivate
       {/* Activation form */}
       <form action={formAction} className="space-y-4">
         <input type="hidden" name="sellerId" value={derivedSellerId} />
-        <input type="hidden" name="sellerAccount" value="franceretailer1388" />
+        <input type="hidden" name="sellerAccount" value={process.env.NEXT_PUBLIC_VTEX_SELLER_ACCOUNT ?? ""} />
         <input type="hidden" name="sellerName" value={legalInfo.companyName ?? ""} />
         <input type="hidden" name="sellerEmail" value={legalInfo.repEmail ?? ""} />
         <input type="hidden" name="taxCode" value={legalInfo.vatNumber ?? ""} />
@@ -136,7 +136,7 @@ export function Step5Activation({ legalInfo, sellerCreated, sellerId, onActivate
               <p className="text-sm font-semibold text-indigo-800">All set!</p>
               <p className="text-xs text-indigo-700 mt-1">
                 Click "Activate seller account" to create your account via the VTEX API
-                ({summary || "franceretailer1388"}).
+                ({summary || process.env.NEXT_PUBLIC_VTEX_SELLER_ACCOUNT || "your-seller-account"}).
               </p>
             </div>
           </div>

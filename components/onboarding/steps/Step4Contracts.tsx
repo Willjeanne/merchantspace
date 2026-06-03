@@ -75,12 +75,12 @@ function ContractCard({
         <div className="mb-4 bg-zinc-50 border border-zinc-200 rounded-lg p-4 text-xs text-zinc-600 space-y-2 max-h-48 overflow-y-auto">
           <p className="font-semibold text-zinc-800 text-center mb-3">{contract.title}</p>
           <p>
-            Between <strong>franceretail SAS</strong> (hereinafter "the Marketplace") and{" "}
+            Between <strong>{process.env.NEXT_PUBLIC_VTEX_ACCOUNT ?? "the Marketplace"}</strong> (hereinafter "the Marketplace") and{" "}
             <strong>{signerName || "[Company name]"}</strong> (hereinafter "the Seller"), the following is agreed:
           </p>
           <p>
             <strong>Article 1 — Purpose.</strong> This agreement defines the conditions under which the Seller lists
-            its products for sale via the franceretail Marketplace.
+            its products for sale via the {process.env.NEXT_PUBLIC_VTEX_ACCOUNT ?? "the Marketplace"} Marketplace.
           </p>
           <p>
             <strong>Article 2 — Commission.</strong> A commission of 12% (inclusive of all taxes) will be deducted from

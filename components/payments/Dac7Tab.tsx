@@ -152,7 +152,7 @@ export function Dac7Tab({ data }: Dac7TabProps) {
           <div className="text-center p-4 bg-zinc-50 rounded-lg">
             <p className="text-xs text-zinc-500 mb-1">Scope</p>
             <p className="text-sm font-semibold text-zinc-700">Marketplace</p>
-            <p className="text-xs text-zinc-400 mt-1">Transmitted by franceretail</p>
+            <p className="text-xs text-zinc-400 mt-1">Transmitted by {process.env.NEXT_PUBLIC_VTEX_ACCOUNT ?? "the marketplace"}</p>
           </div>
         </div>
       </div>
@@ -161,7 +161,7 @@ export function Dac7Tab({ data }: Dac7TabProps) {
       <div className="flex items-start gap-2 text-xs text-zinc-500 bg-zinc-50 rounded-xl p-4 border border-zinc-100">
         <Info className="w-4 h-4 shrink-0 mt-0.5 text-zinc-400" />
         <p>
-          DAC7 Directive (2021/514/EU) requires digital platform operators to report seller revenues exceeding €2,000 or 30 transactions per year to tax authorities. This data is automatically transmitted by the marketplace (franceretail) — no direct action is required from the seller, but you must ensure your tax information (SIREN, VAT number) is up to date.
+          DAC7 Directive (2021/514/EU) requires digital platform operators to report seller revenues exceeding €2,000 or 30 transactions per year to tax authorities. This data is automatically transmitted by the marketplace ({process.env.NEXT_PUBLIC_VTEX_ACCOUNT ?? "your marketplace"}) — no direct action is required from the seller, but you must ensure your tax information (SIREN, VAT number) is up to date.
         </p>
       </div>
     </div>

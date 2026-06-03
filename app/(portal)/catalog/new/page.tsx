@@ -3,6 +3,7 @@ import { ChevronLeft } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { ProductForm } from "@/components/catalog/ProductForm";
 import { getSellerCategories, getSellerBrands } from "@/lib/vtex/catalog";
+import { MARKETPLACE_ACCOUNT } from "@/lib/config";
 
 export default async function NewProductPage() {
   const [categories, brands] = await Promise.all([
@@ -14,7 +15,7 @@ export default async function NewProductPage() {
     <>
       <PageHeader
         title="New Product"
-        description="Create a product in your seller catalog — it will be available on the franceretail marketplace."
+        description={`Create a product in your seller catalog — it will be available on the ${MARKETPLACE_ACCOUNT} marketplace.`}
         actions={
           <Link
             href="/catalog"
