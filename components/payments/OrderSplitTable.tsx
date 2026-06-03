@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import React, { useState } from "react";
 import { ChevronDown, ChevronUp, Download } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { OrderSplit, SplitStatus } from "@/lib/types/payments";
@@ -106,9 +106,8 @@ export function OrderSplitTable({ orders }: OrderSplitTableProps) {
           </thead>
           <tbody className="divide-y divide-zinc-50">
             {filtered.map((order) => (
-              <>
+              <React.Fragment key={order.orderId}>
                 <tr
-                  key={order.orderId}
                   className="hover:bg-zinc-50 cursor-pointer transition-colors"
                   onClick={() => setExpanded(expanded === order.orderId ? null : order.orderId)}
                 >
@@ -163,7 +162,7 @@ export function OrderSplitTable({ orders }: OrderSplitTableProps) {
                     </td>
                   </tr>
                 )}
-              </>
+              </React.Fragment>
             ))}
           </tbody>
         </table>
