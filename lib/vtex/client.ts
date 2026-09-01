@@ -127,10 +127,7 @@ export async function vtexFetch<T>(
     }
   }
 
-  // 204 No Content
-  if (response.status === 204) return undefined as T;
-
-  return response.json() as Promise<T>;
+  return parseVtexBody<T>(response);
 }
 
 // ---------------------------------------------------------------------------
@@ -193,8 +190,20 @@ export async function vtexSellerFetch<T>(
     }
   }
 
+  return parseVtexBody<T>(response);
+}
+
+/**
+ * Reads a successful VTEX response body. Some write endpoints answer 200 with
+ * an empty body rather than 204 — `PUT /api/pricing/prices/{skuId}` does — so
+ * calling `.json()` unconditionally throws "Unexpected end of JSON input" on a
+ * call that actually succeeded.
+ */
+async function parseVtexBody<T>(response: Response): Promise<T> {
   if (response.status === 204) return undefined as T;
-  return response.json() as Promise<T>;
+  const body = await response.text();
+  if (body.trim() === "") return undefined as T;
+  return JSON.parse(body) as T;
 }
 
 /** OMS / Catalog: REST-Range header → "resources=0-49" */
