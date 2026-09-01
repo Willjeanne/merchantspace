@@ -179,6 +179,52 @@ proxy.ts                   → Next.js middleware (auth guard)
 
 ---
 
+## MCP server
+
+`app/api/mcp` exposes a [Model Context Protocol](https://modelcontextprotocol.io) server, built with [`mcp-handler`](https://www.npmjs.com/package/mcp-handler), with one tool per function in `lib/vtex/{catalog,orders,payments,sellers}.ts` — a near 1:1 mapping onto the VTEX Seller Portal APIs this app wraps (products, SKUs, images, brands, categories, pricing, inventory, warehouses, docks, shipping policies, orders, seller commissions, derived payment/payout data).
+
+It runs as a normal Next.js Route Handler (Streamable HTTP transport), so it's available at `http://localhost:3000/api/mcp` locally and at `https://<your-deployment>/api/mcp` once deployed — no separate process to run.
+
+### Auth
+
+Every request must include `Authorization: Bearer <MCP_SERVER_TOKEN>`. The endpoint calls VTEX with this app's own App Key/Token and can mutate live seller data, so it fails closed: if `MCP_SERVER_TOKEN` is unset, every request is rejected with a 500.
+
+```env
+MCP_SERVER_TOKEN=<generate with: openssl rand -base64 32>
+```
+
+### Connecting a client
+
+Streamable HTTP clients can connect directly:
+
+```json
+{
+  "mcpServers": {
+    "merchantspace": {
+      "url": "http://localhost:3000/api/mcp",
+      "headers": { "Authorization": "Bearer <MCP_SERVER_TOKEN>" }
+    }
+  }
+}
+```
+
+For stdio-only clients, use [`mcp-remote`](https://www.npmjs.com/package/mcp-remote):
+
+```json
+{
+  "mcpServers": {
+    "merchantspace": {
+      "command": "npx",
+      "args": ["-y", "mcp-remote", "http://localhost:3000/api/mcp", "--header", "Authorization: Bearer <MCP_SERVER_TOKEN>"]
+    }
+  }
+}
+```
+
+### Write tools
+
+Most tools mutate live VTEX data (create/update/delete products, prices, stock, brands, warehouses, docks). Two image tools (`vtex_add_sku_image_by_url`, `vtex_add_sku_image_by_file`) additionally require a live VTEX session token (`vtexAuthToken`, the `VtexIdclientAutCookie` value) — App Key/Token cannot authenticate that endpoint — since the MCP server has no browser session of its own.
+
 ## Known limitations
 
 - **Image upload** currently supports URL-based import only. File upload (multipart) is not yet implemented.
