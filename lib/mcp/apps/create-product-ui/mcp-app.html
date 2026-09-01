@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Create Product</title>
+    <style>
+      :root {
+        --ink: #18181b;
+        --muted: #71717a;
+        --border: #e4e4e7;
+        --accent: #4f46e5;
+        --accent-hover: #4338ca;
+        --bg: #ffffff;
+        --danger-bg: #fef2f2;
+        --danger-ink: #b91c1c;
+        --ok-bg: #f0fdf4;
+        --ok-ink: #15803d;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        color: var(--ink);
+        background: var(--bg);
+        font-size: 13px;
+      }
+      #app { padding: 16px; max-width: 480px; }
+      h1 { font-size: 15px; font-weight: 600; margin: 0 0 4px; }
+      .subtitle { color: var(--muted); margin: 0 0 16px; font-size: 12px; }
+      .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+      .field { margin-bottom: 12px; }
+      label {
+        display: block;
+        font-size: 11px;
+        font-weight: 500;
+        color: var(--muted);
+        margin-bottom: 4px;
+      }
+      label .req { color: var(--accent); }
+      input, select, textarea {
+        width: 100%;
+        padding: 7px 9px;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        font-size: 13px;
+        font-family: inherit;
+        color: var(--ink);
+        background: var(--bg);
+      }
+      input:focus, select:focus, textarea:focus {
+        outline: 2px solid var(--accent);
+        outline-offset: -1px;
+      }
+      textarea { resize: vertical; min-height: 52px; }
+      .checkbox-row { display: flex; align-items: center; gap: 6px; }
+      .checkbox-row input { width: auto; }
+      .checkbox-row label { margin: 0; }
+      fieldset { border: none; padding: 0; margin: 0 0 4px; }
+      legend {
+        font-size: 11px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+        color: var(--muted);
+        margin-bottom: 8px;
+        padding: 0;
+      }
+      button {
+        width: 100%;
+        padding: 9px;
+        border: none;
+        border-radius: 6px;
+        background: var(--accent);
+        color: white;
+        font-size: 13px;
+        font-weight: 500;
+        cursor: pointer;
+        margin-top: 4px;
+      }
+      button:hover { background: var(--accent-hover); }
+      button:disabled { opacity: 0.6; cursor: default; }
+      .error {
+        display: none;
+        background: var(--danger-bg);
+        color: var(--danger-ink);
+        border-radius: 6px;
+        padding: 8px 10px;
+        font-size: 12px;
+        margin-bottom: 12px;
+        white-space: pre-wrap;
+      }
+      .result {
+        display: none;
+        background: var(--ok-bg);
+        color: var(--ok-ink);
+        border-radius: 8px;
+        padding: 14px;
+        font-size: 13px;
+        line-height: 1.5;
+      }
+      .result strong { display: block; margin-bottom: 4px; }
+      .hint { color: var(--muted); font-size: 11px; margin-top: -6px; margin-bottom: 12px; }
+    </style>
+  </head>
+  <body>
+    <div id="app">
+      <h1>Create product</h1>
+      <p class="subtitle">Creates a product and its first SKU in the seller catalog.</p>
+
+      <div id="error" class="error"></div>
+      <div id="result" class="result"></div>
+
+      <form id="form">
+        <fieldset>
+          <legend>Product</legend>
+          <div class="field">
+            <label for="Name">Name <span class="req">*</span></label>
+            <input id="Name" name="Name" required />
+          </div>
+          <div class="field">
+            <label for="CategoryId">Category <span class="req">*</span></label>
+            <select id="CategoryId" name="CategoryId" required>
+              <option value="">Loading categories…</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="BrandId">Brand <span class="req">*</span></label>
+            <select id="BrandId" name="BrandId" required>
+              <option value="">Loading brands…</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="RefId">Reference ID</label>
+            <input id="RefId" name="RefId" />
+          </div>
+          <div class="field">
+            <label for="Description">Description <span class="req">*</span></label>
+            <textarea id="Description" name="Description" required></textarea>
+          </div>
+          <div class="field checkbox-row">
+            <input type="checkbox" id="IsActive" name="IsActive" checked />
+            <label for="IsActive">Active</label>
+          </div>
+        </fieldset>
+
+        <fieldset>
+          <legend>First SKU</legend>
+          <div class="field">
+            <label for="SkuName">SKU name <span class="req">*</span></label>
+            <input id="SkuName" name="SkuName" required />
+          </div>
+          <div class="field">
+            <label for="SkuRefId">SKU reference ID</label>
+            <input id="SkuRefId" name="SkuRefId" />
+          </div>
+          <div class="field">
+            <label for="PackagedWeightKg">Weight (kg) <span class="req">*</span></label>
+            <input type="number" step="0.01" min="0" id="PackagedWeightKg" name="PackagedWeightKg" required />
+          </div>
+          <div class="row">
+            <div class="field">
+              <label for="PackagedHeight">Height (cm) <span class="req">*</span></label>
+              <input type="number" step="0.1" min="0" id="PackagedHeight" name="PackagedHeight" required />
+            </div>
+            <div class="field">
+              <label for="PackagedWidth">Width (cm) <span class="req">*</span></label>
+              <input type="number" step="0.1" min="0" id="PackagedWidth" name="PackagedWidth" required />
+            </div>
+          </div>
+          <div class="field">
+            <label for="PackagedLength">Length (cm) <span class="req">*</span></label>
+            <input type="number" step="0.1" min="0" id="PackagedLength" name="PackagedLength" required />
+          </div>
+        </fieldset>
+
+        <button type="submit" id="submit-btn">Create product</button>
+      </form>
+    </div>
+    <script type="module" src="/src/mcp-app.ts"></script>
+  </body>
+</html>
