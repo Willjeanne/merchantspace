@@ -2,6 +2,10 @@ import crypto from "crypto";
 
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID!;
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET!;
+// Deliberately NOT derived from the request (unlike the other auth routes' redirects):
+// Google validates redirect_uri against the exact URL registered in Cloud Console, so
+// this must stay a fixed, pre-registered value — NEXTAUTH_URL must be set for this flow
+// to work in any deployed environment.
 const NEXTAUTH_URL = process.env.NEXTAUTH_URL ?? "http://localhost:3000";
 const CALLBACK_URI = `${NEXTAUTH_URL}/api/auth/google/callback`;
 

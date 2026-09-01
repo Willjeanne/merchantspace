@@ -2,10 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { startVtexAuth, sendAccessKey } from "@/lib/auth/vtex-id";
 import { setAkStateCookie } from "@/lib/auth/session";
-
-const NEXTAUTH_URL = process.env.NEXTAUTH_URL ?? "http://localhost:3000";
+import { getRequestOrigin } from "@/lib/utils/request";
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
+  const NEXTAUTH_URL = getRequestOrigin(request);
   try {
     const formData = await request.formData();
     const email = formData.get("email");

@@ -3,10 +3,10 @@ import { cookies } from "next/headers";
 import { validateAccessKey } from "@/lib/auth/vtex-id";
 import { setAuthCookies, getAkState, AK_STATE_COOKIE } from "@/lib/auth/session";
 import type { SessionUser } from "@/lib/types/auth";
-
-const NEXTAUTH_URL = process.env.NEXTAUTH_URL ?? "http://localhost:3000";
+import { getRequestOrigin } from "@/lib/utils/request";
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
+  const NEXTAUTH_URL = getRequestOrigin(request);
   const cookieStore = await cookies();
 
   try {

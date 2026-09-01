@@ -4,10 +4,10 @@ import { exchangeGoogleCode } from "@/lib/auth/google";
 import { exchangeGoogleToken, validateVtexToken } from "@/lib/auth/vtex-id";
 import { setAuthCookies, STATE_COOKIE } from "@/lib/auth/session";
 import type { SessionUser } from "@/lib/types/auth";
-
-const NEXTAUTH_URL = process.env.NEXTAUTH_URL ?? "http://localhost:3000";
+import { getRequestOrigin } from "@/lib/utils/request";
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
+  const NEXTAUTH_URL = getRequestOrigin(request);
   const { searchParams } = new URL(request.url);
   const code = searchParams.get("code");
   const state = searchParams.get("state");
