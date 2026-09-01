@@ -35,6 +35,7 @@ import {
   getShippingPolicies,
 } from "@/lib/vtex/catalog";
 import { safe, safeNoArgs } from "../utils";
+import { CREATE_PRODUCT_RESOURCE_URI } from "../apps/register";
 
 // ─── Shared fragments ──────────────────────────────────────────────────────
 
@@ -135,6 +136,10 @@ export function registerCatalogTools(server: McpServer) {
         PackagedWidth: z.number(),
         PackagedLength: z.number(),
       }),
+      // Links this tool to the interactive create-product form (see lib/mcp/apps/register.ts).
+      // Default visibility (["model", "app"]) applies: the model can still call this directly
+      // with full args, and the form's own submit button calls it via app.callServerTool().
+      _meta: { ui: { resourceUri: CREATE_PRODUCT_RESOURCE_URI } },
     },
     safe(createSellerProduct)
   );
