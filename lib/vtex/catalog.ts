@@ -981,14 +981,14 @@ export async function setSkuPrice(
   skuId: string,
   data: { listPrice: number; basePrice: number; markup?: number }
 ): Promise<VtexPrice> {
+  // VTEX Pricing API requires exactly two of {basePrice, costPrice, markup}.
   return vtexSellerFetch<VtexPrice>(`/api/pricing/prices/${skuId}`, {
     method: "PUT",
-    body: JSON.stringify({
-      listPrice: data.listPrice,
-      costPrice: data.basePrice,
-      markup: data.markup ?? 0,
-      basePrice: data.basePrice,
-    }),
+    body: JSON.stringify(
+      data.markup !== undefined
+        ? { listPrice: data.listPrice, basePrice: data.basePrice, markup: data.markup }
+        : { listPrice: data.listPrice, basePrice: data.basePrice, costPrice: data.basePrice }
+    ),
   });
 }
 

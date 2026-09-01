@@ -173,6 +173,29 @@
           </div>
         </fieldset>
 
+        <fieldset>
+          <legend>Pricing &amp; stock</legend>
+          <p class="hint">
+            Optional, but a SKU with no price and no stock isn't sellable.
+          </p>
+          <div class="row">
+            <div class="field">
+              <label for="Price">Price (EUR)</label>
+              <input type="number" step="0.01" min="0" id="Price" name="Price" />
+            </div>
+            <div class="field">
+              <label for="Quantity">Stock quantity</label>
+              <input type="number" step="1" min="0" id="Quantity" name="Quantity" />
+            </div>
+          </div>
+          <div class="field">
+            <label for="WarehouseId">Warehouse</label>
+            <select id="WarehouseId" name="WarehouseId">
+              <option value="">Loading warehouses…</option>
+            </select>
+          </div>
+        </fieldset>
+
         <button type="submit" id="submit-btn">Create product</button>
       </form>
     </div>

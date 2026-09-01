@@ -9,6 +9,7 @@ const errorEl = document.getElementById("error") as HTMLDivElement;
 const submitBtn = document.getElementById("submit-btn") as HTMLButtonElement;
 const categorySelect = document.getElementById("CategoryId") as HTMLSelectElement;
 const brandSelect = document.getElementById("BrandId") as HTMLSelectElement;
+const warehouseSelect = document.getElementById("WarehouseId") as HTMLSelectElement;
 
 function showError(message: string) {
   errorEl.textContent = message;
@@ -24,7 +25,21 @@ function firstText(result: CallToolResult): string | undefined {
   return result.content?.find((c) => c.type === "text")?.text;
 }
 
-function renderCreateResult(result: CallToolResult) {
+function parseCreated(text: string | undefined): { productId?: number; skuId?: number } {
+  try {
+    return text ? JSON.parse(text) : {};
+  } catch {
+    return {};
+  }
+}
+
+/**
+ * Renders the outcome of a create. `followUps` carries the per-step results of
+ * the price/stock calls the form makes after the product exists — they can fail
+ * independently of a successful create, so they're reported as extra lines
+ * rather than flipping the whole thing to an error.
+ */
+function renderCreateResult(result: CallToolResult, followUps: string[] = []) {
   const text = firstText(result);
   if (result.isError) {
     formEl.style.display = "";
@@ -34,17 +49,36 @@ function renderCreateResult(result: CallToolResult) {
   clearError();
   formEl.style.display = "none";
   resultEl.style.display = "block";
-  let parsed: { productId?: number; skuId?: number } = {};
-  try {
-    parsed = text ? JSON.parse(text) : {};
-  } catch {
-    // fall through with raw text below
+  const parsed = parseCreated(text);
+  const summary = parsed.productId
+    ? `Product ID: ${parsed.productId}${parsed.skuId ? ` · SKU ID: ${parsed.skuId}` : ""}`
+    : (text ?? "Done.");
+  resultEl.innerHTML = `<strong>Product created</strong>` + summary;
+  // Follow-up lines can carry raw VTEX error text — append as text nodes, not markup.
+  for (const line of followUps) {
+    const div = document.createElement("div");
+    div.textContent = line;
+    resultEl.appendChild(div);
   }
-  resultEl.innerHTML =
-    `<strong>Product created</strong>` +
-    (parsed.productId
-      ? `Product ID: ${parsed.productId}${parsed.skuId ? ` · SKU ID: ${parsed.skuId}` : ""}`
-      : (text ?? "Done."));
+}
+
+/**
+ * Runs one post-create call (price, stock) and describes how it went. The
+ * product already exists at this point, so a failure here is reported next to
+ * the success rather than thrown — the user needs to know which half landed.
+ */
+async function runFollowUp(
+  successLabel: string,
+  call: { name: string; arguments: Record<string, unknown> }
+): Promise<string> {
+  try {
+    const result = await app.callServerTool(call);
+    return result.isError
+      ? `${successLabel} — failed: ${firstText(result) ?? "unknown error"}`
+      : `${successLabel}.`;
+  } catch (err) {
+    return `${successLabel} — failed: ${err instanceof Error ? err.message : String(err)}`;
+  }
 }
 
 // Populate flat option lists into a <select>, replacing the placeholder option.
@@ -81,9 +115,10 @@ function flattenCategories(
 
 async function loadPickers() {
   try {
-    const [catResult, brandResult] = await Promise.all([
+    const [catResult, brandResult, warehouseResult] = await Promise.all([
       app.callServerTool({ name: "vtex_list_categories", arguments: {} }),
       app.callServerTool({ name: "vtex_list_brands", arguments: {} }),
+      app.callServerTool({ name: "vtex_list_warehouses", arguments: {} }),
     ]);
 
     const categories = JSON.parse(firstText(catResult) ?? "[]");
@@ -98,10 +133,24 @@ async function loadPickers() {
       brandSelect,
       brands.filter((b) => b.isActive).map((b) => ({ value: String(b.id), label: b.name }))
     );
+
+    const warehouses = JSON.parse(firstText(warehouseResult) ?? "[]") as Array<{
+      id: string;
+      name: string;
+      isActive: boolean;
+    }>;
+    const activeWarehouses = warehouses.filter((w) => w.isActive);
+    fillOptions(
+      warehouseSelect,
+      activeWarehouses.map((w) => ({ value: w.id, label: w.name }))
+    );
+    // Most seller accounts have exactly one — preselect it so stock alone is enough.
+    if (activeWarehouses.length === 1) warehouseSelect.value = activeWarehouses[0].id;
   } catch {
-    // Host may restrict which tools this app can call — fall back to plain numeric entry.
+    // Host may restrict which tools this app can call — fall back to plain ID entry.
     categorySelect.outerHTML = `<input type="number" id="CategoryId" name="CategoryId" required placeholder="Category ID" />`;
     brandSelect.outerHTML = `<input type="number" id="BrandId" name="BrandId" required placeholder="Brand ID" />`;
+    warehouseSelect.outerHTML = `<input id="WarehouseId" name="WarehouseId" placeholder="Warehouse ID" />`;
   }
 }
 
@@ -143,9 +192,43 @@ formEl.addEventListener("submit", async (event) => {
     PackagedLength: num("PackagedLength"),
   };
 
+  const price = str("Price") === "" ? undefined : num("Price");
+  const quantity = str("Quantity") === "" ? undefined : num("Quantity");
+  const warehouseId = str("WarehouseId");
+
   try {
     const result = await app.callServerTool({ name: "vtex_create_product", arguments: args });
-    renderCreateResult(result);
+    if (result.isError) {
+      renderCreateResult(result);
+      return;
+    }
+
+    // Price and stock are separate VTEX APIs, keyed on the SKU the create just
+    // returned — so they can only run once it succeeded.
+    const { skuId } = parseCreated(firstText(result));
+    const followUps: string[] = [];
+
+    if (skuId !== undefined && price !== undefined) {
+      followUps.push(
+        await runFollowUp(`Price set to ${price} EUR`, {
+          name: "vtex_set_sku_price",
+          arguments: { skuId: String(skuId), listPrice: price, basePrice: price },
+        })
+      );
+    }
+
+    if (skuId !== undefined && quantity !== undefined) {
+      followUps.push(
+        warehouseId === ""
+          ? "Stock not set: no warehouse selected."
+          : await runFollowUp(`Stock set to ${quantity}`, {
+              name: "vtex_set_sku_inventory",
+              arguments: { skuId: String(skuId), warehouseId, quantity },
+            })
+      );
+    }
+
+    renderCreateResult(result, followUps);
   } catch (err) {
     showError(err instanceof Error ? err.message : String(err));
   } finally {

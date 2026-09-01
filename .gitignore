@@ -8,6 +8,9 @@ node_modules/
 out/
 build/
 
+# MCP App UI build output (bundled into create-product-app-html.ts, which is committed)
+lib/mcp/apps/create-product-ui/dist/
+
 # Environment files
 .env
 .env.local
