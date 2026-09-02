@@ -82,10 +82,10 @@ avec `listShippingPolicies()`, `getShippingPolicy()`, `createShippingPolicy()`,
 update du nom seul → `numberOfItemsPerShipment`, flags week-end et dimensions **préservés** ;
 update d'un seul flag → seul ce flag change.
 
-⚠️ **La policy de test `2` (« Express 24h ») existe toujours sur le compte.** Créée pour
-valider, pas supprimée (pas d'outil delete exposé, et supprimer était l'action
-irréversible). Pour l'enlever :
-`DELETE /api/logistics/pvt/shipping-policies/2` avec la clé seller.
+La policy de test `2` créée pour valider a été **supprimée** (`DELETE
+/api/logistics/pvt/shipping-policies/2` → 204). Le compte est revenu à sa seule policy
+`1` « Standard Delivery ». `DELETE` fonctionne donc sur cette ressource, mais **n'est pas
+exposé en outil MCP** — hors du scope demandé (création/modification).
 
 ### Session 2026-09-02 (cont.) — MCP Phase 2 : sellers / onboarding
 
