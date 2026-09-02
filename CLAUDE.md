@@ -50,7 +50,8 @@ NEXTAUTH_URL=http://localhost:3000
   - [x] Phase 1a — adressage seller-side + `start-handling` (43 outils)
   - [x] Phase 1b — `vtex_invoice_order` = dispatch (44 outils) · **validé en live**
         *(`cancel` / `tracking` écartés du scope)*
-  - [ ] Phase 2 — sellers / onboarding *(partiellement bloqué : permission marketplace)*
+  - [~] Phase 2 — sellers / onboarding : lecture OK (46 outils), erreurs de permission
+        rendues lisibles *(écritures Seller Register toujours bloquées)*
   - [ ] Phase 3 — shipping policies create/update
   - [ ] Phase 4 — images SKU *(bloqué : permission `vtex.catalog-images`)*
 
@@ -64,6 +65,31 @@ NEXTAUTH_URL=http://localhost:3000
 7. Polish + seed data
 
 ## Session log
+
+### Session 2026-09-02 (cont.) — MCP Phase 2 : sellers / onboarding
+
+**Fait :**
+- `lib/vtex/client.ts` : `assertJsonResponse()` sur les deux fetchers — une permission
+  manquante arrivait en HTTP 200 `text/html` et cassait au `JSON.parse`. Voir gotchas ;
+  c'est la cause racine de **deux** outils cassés, pas un correctif cosmétique.
+  `VtexUnauthorizedError` accepte désormais un message explicite (2e arg optionnel).
+- `lib/vtex/sellers.ts` : `catch { return [] }` retiré de `getSellerCommissions` ;
+  ajout de `listSellers()` et `getSeller()` + type `VtexCatalogSeller` sur la surface
+  Catalog System, qui marche avec la clé actuelle.
+- `lib/mcp/tools/sellers.ts` : `vtex_list_sellers`, `vtex_get_seller`. **46 outils.**
+  Description de `vtex_get_seller_commissions` amendée : dit explicitement que l'échec est
+  une permission et qu'il ne faut pas le lire comme « aucune commission ».
+
+**Vérifié en live** : 46 outils ; `vtex_list_sellers` → 11 sellers ; `vtex_get_seller`
+→ `franceretailer1388` actif, `SellerType: 1` ; `vtex_get_seller_commissions` → erreur
+*exploitable* (« missing the License Manager resource… a permission to grant, not a code
+error ») au lieu de `Unexpected token '<'`. Non-régression vérifiée sur `vtex_list_products`,
+`vtex_list_seller_orders`, `vtex_list_warehouses` — les deux fetchers passent.
+
+**Reste bloqué sur permission :** `vtex_get_seller_commissions` (overrides par catégorie),
+mapping sales-channel, et `vtex_create_or_update_seller` — dont l'échec est maintenant
+lisible mais toujours un échec. `vtex_upsert_seller_commissions` n'a pas été testé (écriture
+sur une surface dont les lectures échouent déjà).
 
 ### Session 2026-09-02 — MCP : actions sur les commandes (Phase 1)
 
@@ -284,7 +310,9 @@ besoin. À rouvrir seulement si la démo l'exige.
 | `/api/oms/pvt/orders/{orderId}/invoice/{invoiceNumber}` | 3968 | PATCH | *à implémenter* — tracking, après la facture |
 | `/api/vtexid/apptoken/login` | 3796 | POST | App Key/Token → `VtexIdclientAutCookie`. Pas de header d'auth (creds dans le body) |
 | `/api/logistics/pvt/shipping-policies` | 3685/3686/3683/3684 | GET/POST/PUT/DELETE | Phase 3. Testé 200 côté seller. ≠ `/configuration/carriers` que l'app lit aujourd'hui |
-| `/api/catalog_system/pvt/seller/list` | 3297 | GET | Phase 2. Testé 200, **sans permission supplémentaire** |
+| `/api/catalog_system/pvt/seller/list` | 3297 | GET | Phase 2. **Testé 200**, sans permission supplémentaire. Porte les taux au niveau compte |
+| `/api/catalog_system/pvt/seller/{sellerId}` | 3298 | GET | Phase 2. **Testé 200**. `/sellers/{id}` (3301) marche aussi |
+| `/seller-register/pvt/sellers/{id}/commissions` | 4292 | GET | **Bloqué** : 4 redirections → `/admin/login/` en 200 HTML. Permission Seller Register |
 
 ---
 
@@ -384,11 +412,27 @@ besoin. À rouvrir seulement si la démo l'exige.
   un vrai `VtexIdclientAutCookie` (testé OK, token ~572 car.). Reste un **403** ensuite —
   la clé n'a pas la ressource `vtex.catalog-images`. C'est une permission à accorder, pas
   un problème de code.
-- **`getSellerCommissions` avale les erreurs** (`catch { return [] }`) : un droit manquant
-  se lit comme « aucune commission ». Tous les `GET /seller-register/pvt/*` renvoient
-  actuellement **302 vers Admin login** (permission manquante sur la clé marketplace), donc
-  `vtex_get_seller_commissions` ment, et `vtex_create_or_update_seller` est probablement
-  cassé aussi (POST → 302 → HTML → `JSON.parse` throw). À réparer en Phase 2.
+- **🔴 Une permission manquante se présente en HTML, pas en 401.** Sur `franceretail`, tous
+  les `GET /seller-register/pvt/*` partent en **4 redirections** et finissent sur
+  `/admin/login/?portal=true` en **HTTP 200 `text/html`** — pas sur le
+  `/Admin/Site/Login.aspx` que le premier 302 annonce. `fetch` suit la chaîne, donc
+  l'appelant reçoit un 200 et `JSON.parse` casse sur `Unexpected token '<'` : un problème
+  de droit déguisé en bug de parsing.
+  Détection : `assertJsonResponse()` dans `lib/vtex/client.ts` rejette tout `content-type:
+  text/html` sur les deux fetchers (tous nos appels envoient `Accept: application/json` et
+  passent par `parseVtexBody`, donc du HTML est toujours une erreur). **Ne pas détecter sur
+  l'URL** — la première tentative matchait `/Admin/Site/Login` et ne déclenchait jamais.
+  Message obtenu : « the App Key is missing the License Manager resource this endpoint
+  requires. This is a permission to grant, not a code error. »
+- **`getSellerCommissions` ne ment plus** : le `catch { return [] }` est retiré (2026-09-02).
+  Il n'était appelé que par le MCP, aucune page ne dépendait du `[]`. Contournement pour
+  les taux au niveau compte : `/api/catalog_system/pvt/seller/*` (voir gotcha suivant).
+- **Les endpoints Catalog System `seller` marchent, eux.** `GET
+  /api/catalog_system/pvt/seller/list` (11 sellers) et
+  `GET /api/catalog_system/pvt/seller/{sellerId}` répondent **200 avec la clé marketplace
+  actuelle**, et portent déjà `ProductCommissionPercentage` /
+  `FreightCommissionPercentage`. C'est la surface historique, moins riche que Seller
+  Register (pas d'override par catégorie) mais disponible sans nouvelle permission.
 - **`MCP_SERVER_TOKEN` manquait dans `.env.local`.** Sans lui la route `/api/mcp` renvoie
   500 « not configured » en local (fail-closed voulu). Ajouté le 2026-09-02 dans le
   `.env.local` (gitignoré), avec **la même valeur que sur Vercel** — décision assumée :
