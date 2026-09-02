@@ -52,7 +52,7 @@ NEXTAUTH_URL=http://localhost:3000
         *(`cancel` / `tracking` écartés du scope)*
   - [~] Phase 2 — sellers / onboarding : lecture OK (46 outils), erreurs de permission
         rendues lisibles *(écritures Seller Register toujours bloquées)*
-  - [ ] Phase 3 — shipping policies create/update
+  - [x] Phase 3 — shipping policies read/create/update (49 outils) · validé en live
   - [ ] Phase 4 — images SKU *(bloqué : permission `vtex.catalog-images`)*
 
 ## Build order
@@ -65,6 +65,27 @@ NEXTAUTH_URL=http://localhost:3000
 7. Polish + seed data
 
 ## Session log
+
+### Session 2026-09-02 (cont.) — MCP Phase 3 : shipping policies
+
+**Fait :** `lib/vtex/shipping-policies.ts` (nouveau fichier — `catalog.ts` est déjà à
+1189 lignes, au-delà du max de 800 ; extraire sa moitié logistique reste à faire, séparément)
+avec `listShippingPolicies()`, `getShippingPolicy()`, `createShippingPolicy()`,
+`updateShippingPolicy()`. Outils MCP : `vtex_get_shipping_policy`,
+`vtex_create_shipping_policy`, `vtex_update_shipping_policy`, et
+`vtex_list_shipping_policies` **repointé** de `/configuration/carriers` vers
+`/shipping-policies` pour que lecture et écriture MCP désignent le même objet.
+**49 outils.** La page Fulfillment continue de lire `/configuration/carriers` via
+`getShippingPolicies()` — divergence assumée, non touchée.
+
+**Vérifié en live** : création de la policy `2` (défauts + champs exposés corrects) ;
+update du nom seul → `numberOfItemsPerShipment`, flags week-end et dimensions **préservés** ;
+update d'un seul flag → seul ce flag change.
+
+⚠️ **La policy de test `2` (« Express 24h ») existe toujours sur le compte.** Créée pour
+valider, pas supprimée (pas d'outil delete exposé, et supprimer était l'action
+irréversible). Pour l'enlever :
+`DELETE /api/logistics/pvt/shipping-policies/2` avec la clé seller.
 
 ### Session 2026-09-02 (cont.) — MCP Phase 2 : sellers / onboarding
 
@@ -379,6 +400,21 @@ besoin. À rouvrir seulement si la démo l'exige.
   Correctif : `readOrderAfterAction()` relit avec relances (2s/3s/5s) et le résultat
   distingue `applied` de `accepted-pending`. Sur `accepted-pending` la consigne à
   l'appelant est **relire, jamais réessayer**.
+- **🔴 `PUT /api/logistics/pvt/shipping-policies/{id}` : la spec OpenAPI est fausse sur
+  deux points, et l'endpoint est un REMPLACEMENT complet.** Établi sur
+  `franceretailer1388` :
+  1. La spec exige `deliveryOnWeekends` (un booléen). Ce champ est **inerte** : un PUT avec
+     `deliveryOnWeekends: true` renvoie 200 et laisse `weekendAndHolidays` à tout-faux. Le
+     champ qui marche est **`weekendAndHolidays`** — le même objet qu'en GET et en POST —
+     que la spec ne liste pourtant pas pour le PUT.
+  2. Tout champ écrivable **omis est réinitialisé**, pas préservé. Omettre
+     `numberOfItemsPerShipment` l'a fait passer de `5` à `null` ; omettre
+     `weekendAndHolidays` a effacé les flags.
+  Donc : lire le record, fusionner, tout réémettre. Un PUT partiel détruit silencieusement
+  le reste de la politique. C'est `updateShippingPolicy()` qui s'en charge.
+- **`carrierInfo.linkedDocks` n'est peuplé que par la LISTE.** Même politique, deux
+  réponses : `GET /shipping-policies` renvoie le dock lié, `GET /shipping-policies/{id}`
+  renvoie `[]`. Lire les docks liés depuis la liste, jamais depuis le get par id.
 - **Ne jamais déduire le succès d'une action OMS de son code HTTP.** La doc VTEX exige de
   valider un **204 exact** et prévient que `start-handling` « can also respond with status
   500 ». `SellerOrderActionResult` relit donc la commande et compare le statut avant/après
