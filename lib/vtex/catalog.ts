@@ -630,7 +630,11 @@ export async function addSkuImageByFile(
 
 /**
  * Add an image to a product via the Seller Portal PUT product endpoint.
- * VTEX fetches the image from the provided URL and stores it in its CDN.
+ *
+ * The image must ALREADY be hosted on the account's vtexassets.com CDN — VTEX
+ * does not fetch it from an arbitrary URL, and rejects anything else with
+ * `ImageUrlInvalidException` ("Valid url format https://{account}.vtexassets.com/{path}").
+ * To attach an external image, upload it first (see addSkuImageByUrl).
  */
 export async function addProductImageViaSellerPortal(
   productId: number,
