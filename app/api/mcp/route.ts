@@ -23,11 +23,10 @@ function unauthorized(message: string) {
  * using this app's own App Key/Token — it must never be reachable without a secret.
  * Fails closed: if MCP_SERVER_TOKEN isn't configured, every request is rejected.
  *
- * Accepts the token via the standard `Authorization: Bearer` header, or via a
- * `?token=` query param — the latter exists because Claude.ai's custom connector
- * UI only accepts a bare URL for orgs without the (beta, org-gated) request-headers
- * option. Treat any URL containing the token as sensitive: it can end up in
- * browser history and request logs the same way the header would not.
+ * The token is only ever read from the `Authorization: Bearer` header. A `?token=`
+ * query-param fallback used to be accepted for connector UIs that take a bare URL,
+ * but a token in a URL leaks into browser history, referrers and request logs, and
+ * this one grants write access to the live catalog.
  */
 async function authenticatedHandler(request: Request): Promise<Response> {
   const expectedToken = process.env.MCP_SERVER_TOKEN;
@@ -39,9 +38,7 @@ async function authenticatedHandler(request: Request): Promise<Response> {
   }
 
   const authHeader = request.headers.get("authorization");
-  const headerToken = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : undefined;
-  const queryToken = new URL(request.url).searchParams.get("token") ?? undefined;
-  const providedToken = headerToken ?? queryToken;
+  const providedToken = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : undefined;
 
   if (providedToken !== expectedToken) {
     return unauthorized("Missing or invalid bearer token");
