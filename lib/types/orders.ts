@@ -132,3 +132,47 @@ export interface OrderListParams {
   perPage?: number;
   orderBy?: string;
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Seller-account orders (GET https://{seller}.../api/oms/pvt/orders)
+//
+// The seller account runs its OWN OMS, holding the fulfillment-side counterpart
+// of each marketplace order — a different id and a different status vocabulary.
+// Verified on franceretailer1388: marketplace `1636850500482-01`
+// (`payment-approved`) is `FRN-1636850500005-01` (`waiting-seller-handling`)
+// here. Only these ids are accepted by the order action endpoints.
+//
+// `status` is deliberately a plain string: `waiting-seller-handling` is absent
+// from the marketplace `OrderStatus` union above, and VTEX documents that
+// unknown statuses must be tolerated rather than rejected.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface VtexSellerOrderSummary extends Omit<VtexOrderSummary, "status"> {
+  status: string;
+}
+
+export interface VtexSellerOrdersListResponse
+  extends Omit<VtexOrdersListResponse, "list"> {
+  list: VtexSellerOrderSummary[];
+}
+
+export interface VtexSellerOrderDetail extends Omit<VtexOrderDetail, "status"> {
+  status: string;
+  /** Whether VTEX currently permits cancelling this order. */
+  allowCancellation: boolean;
+  /** Whether VTEX currently permits editing this order's items. */
+  allowEdition: boolean;
+  /** Empty on chain orders — the marketplace is named by `marketplaceServicesEndpoint`. */
+  marketplaceOrderId: string;
+  orderGroup: string;
+  affiliateId: string;
+  /** `"Chain"` on orders forwarded by a marketplace. */
+  origin: string;
+  /** Set once the marketplace authorized fulfillment; the order then awaits dispatch. */
+  authorizedDate: string | null;
+  invoicedDate: string | null;
+}
+
+export interface SellerOrderListParams extends Omit<OrderListParams, "status"> {
+  status?: string;
+}

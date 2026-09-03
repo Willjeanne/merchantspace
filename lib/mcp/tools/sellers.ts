@@ -4,8 +4,10 @@ import {
   createOrUpdateSeller,
   getSellerCommissions,
   upsertSellerCommissions,
+  listSellers,
+  getSeller,
 } from "@/lib/vtex/sellers";
-import { safe } from "../utils";
+import { safe, safeNoArgs } from "../utils";
 
 const sellerPayload = z.object({
   id: z.string(),
@@ -39,6 +41,29 @@ const commissionLine = z.object({
 
 export function registerSellerTools(server: McpServer) {
   server.registerTool(
+    "vtex_list_sellers",
+    {
+      title: "List sellers",
+      description:
+        "GET /api/catalog_system/pvt/seller/list — every seller registered on the marketplace account, with their account-level ProductCommissionPercentage and FreightCommissionPercentage. Works with the current App Key. Prefer this over vtex_get_seller_commissions for commission rates: that one reads the Seller Register API, which needs a permission this key does not have yet, and only adds per-category overrides.",
+    },
+    safeNoArgs(listSellers)
+  );
+
+  server.registerTool(
+    "vtex_get_seller",
+    {
+      title: "Get seller",
+      description:
+        "GET /api/catalog_system/pvt/seller/{sellerId} — one seller's registration record on the marketplace account: status, commissions, fulfillment and catalog endpoints, seller type.",
+      inputSchema: z.object({
+        sellerId: z.string().describe('Seller id, e.g. "franceretailer1388"'),
+      }),
+    },
+    safe(({ sellerId }) => getSeller(sellerId))
+  );
+
+  server.registerTool(
     "vtex_create_or_update_seller",
     {
       title: "Create or update seller",
@@ -54,7 +79,7 @@ export function registerSellerTools(server: McpServer) {
     {
       title: "Get seller category commissions",
       description:
-        "GET /seller-register/pvt/sellers/{sellerId}/commissions — all category-level commission rates configured for a seller.",
+        "GET /seller-register/pvt/sellers/{sellerId}/commissions — the per-CATEGORY commission overrides for a seller. Note: on this account the Seller Register API is not yet authorised for the marketplace App Key and every read there fails with a permission error — that is expected and must be reported as such, never as 'this seller has no commissions'. For account-level rates that do work, use vtex_list_sellers or vtex_get_seller.",
       inputSchema: z.object({ sellerId: z.string() }),
     },
     safe(({ sellerId }) => getSellerCommissions(sellerId))

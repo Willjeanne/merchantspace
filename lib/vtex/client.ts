@@ -40,8 +40,8 @@ export class VtexApiError extends Error {
 }
 
 export class VtexUnauthorizedError extends VtexApiError {
-  constructor(endpoint: string) {
-    super(401, "Unauthorized — check App Key / App Token", endpoint);
+  constructor(endpoint: string, message = "Unauthorized — check App Key / App Token") {
+    super(401, message, endpoint);
     this.name = "VtexUnauthorizedError";
   }
 }
@@ -127,6 +127,8 @@ export async function vtexFetch<T>(
     }
   }
 
+  assertJsonResponse(response, path);
+
   return parseVtexBody<T>(response);
 }
 
@@ -190,7 +192,41 @@ export async function vtexSellerFetch<T>(
     }
   }
 
+  assertJsonResponse(response, path);
+
   return parseVtexBody<T>(response);
+}
+
+/**
+ * Rejects an HTML body on an endpoint that must answer JSON.
+ *
+ * When an App Key lacks the License Manager resource a private endpoint needs,
+ * some VTEX APIs redirect to the Admin login page instead of answering 401.
+ * fetch follows the chain, so the caller gets a 200 carrying a login form and
+ * JSON.parse fails with "Unexpected token '<'" — a permission problem disguised
+ * as a parsing bug.
+ *
+ * Detection is on the content type, not the URL: the observed chain for
+ * `GET /seller-register/pvt/*` on franceretail is four hops ending at
+ * `/admin/login/?portal=true`, nothing like the `/Admin/Site/Login.aspx` the
+ * first 302 advertises. Every wrapper here sends `Accept: application/json` and
+ * every caller goes through `parseVtexBody`, so an HTML body is always wrong.
+ */
+function assertJsonResponse(response: Response, endpoint: string): void {
+  const contentType = response.headers.get("content-type") ?? "";
+  if (!contentType.toLowerCase().includes("text/html")) return;
+
+  const isAdminLogin = /\/admin\/(site\/)?login/i.test(response.url ?? "");
+  throw new VtexUnauthorizedError(
+    endpoint,
+    isAdminLogin
+      ? `VTEX answered ${endpoint} with the Admin login page instead of JSON: the App ` +
+          `Key is missing the License Manager resource this endpoint requires. This is a ` +
+          `permission to grant, not a code error.`
+      : `VTEX answered ${endpoint} with HTML instead of JSON (content-type ` +
+          `"${contentType}"). This usually means the request was redirected to a login ` +
+          `or error page because the App Key lacks the required permission.`
+  );
 }
 
 /**
