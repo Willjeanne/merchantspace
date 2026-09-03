@@ -1032,20 +1032,85 @@ export async function createSellerWarehouse(data: {
 /**
  * Update a warehouse.
  */
+/**
+ * Re-reads a logistics record until it reflects the write, or gives up.
+ *
+ * Logistics writes propagate asynchronously. Observed on dock `1`: a rename and
+ * a `freightTableIds` change were both absent from the read taken immediately
+ * after a successful POST, and present a second later. Returning that first
+ * read makes a successful write look like a no-op — the same false negative the
+ * OMS actions hit (see readOrderAfterAction in lib/vtex/orders.ts).
+ *
+ * Returns the last read either way: this reports, it never throws.
+ */
+async function readBackUntil<T>(
+  read: () => Promise<T>,
+  reflectsWrite: (value: T) => boolean
+): Promise<T> {
+  let value = await read();
+  for (const delay of [500, 1500, 3000]) {
+    if (reflectsWrite(value)) return value;
+    await new Promise((resolve) => setTimeout(resolve, delay));
+    value = await read();
+  }
+  return value;
+}
+
+/**
+ * GET /api/logistics/pvt/configuration/warehouses/{id}
+ * Single warehouse. Needed because the update endpoint replaces the whole record.
+ */
+export async function getSellerWarehouse(id: string): Promise<VtexWarehouse> {
+  return vtexSellerFetch<VtexWarehouse>(
+    `/api/logistics/pvt/configuration/warehouses/${encodeURIComponent(id)}`
+  );
+}
+
+/**
+ * POST /api/logistics/pvt/configuration/warehouses — with the id in the BODY.
+ *
+ * 🔴 Same pair of bugs as updateSellerDock, established on warehouse `1_1`:
+ *
+ * 1. The old code sent `PUT /configuration/warehouses/{id}`, which answers
+ *    `The requested resource does not support http method 'PUT'`. The tool
+ *    never updated anything. Update shares the create endpoint, keyed by `id`.
+ * 2. It also sent only `{id, name, warehouseDocks}`, which once the path was
+ *    right would have dropped `pickupPointIds`, `priority`, `isActive` and
+ *    `sellerId` — a rename could have deactivated the warehouse or unlinked
+ *    its docks.
+ *
+ * The current record is read and merged; omitted fields keep their value.
+ */
 export async function updateSellerWarehouse(
   id: string,
-  data: { name: string; warehouseDocks?: Array<{ dockId: string; time: string; cost: string }> }
-): Promise<void> {
-  await vtexSellerFetch(
-    `/api/logistics/pvt/configuration/warehouses/${encodeURIComponent(id)}`,
-    {
-      method: "PUT",
-      body: JSON.stringify({
-        id,
-        name: data.name,
-        warehouseDocks: data.warehouseDocks ?? [],
-      }),
-    }
+  updates: {
+    name?: string;
+    warehouseDocks?: Array<{ dockId: string; time: string; cost: number | string }>;
+    priority?: number;
+    isActive?: boolean;
+    pickupPointIds?: string[];
+  }
+): Promise<VtexWarehouse> {
+  const current = await getSellerWarehouse(id);
+
+  const body: VtexWarehouse = {
+    ...current,
+    id: current.id,
+    name: updates.name ?? current.name,
+    warehouseDocks: updates.warehouseDocks ?? current.warehouseDocks,
+    priority: updates.priority ?? current.priority,
+    isActive: updates.isActive ?? current.isActive,
+    pickupPointIds: updates.pickupPointIds ?? current.pickupPointIds,
+  };
+
+  await vtexSellerFetch("/api/logistics/pvt/configuration/warehouses", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+
+  return readBackUntil(
+    () => getSellerWarehouse(id),
+    (w) => w.name === body.name && w.isActive === body.isActive
   );
 }
 
@@ -1128,7 +1193,8 @@ export async function createSellerDock(data: {
       priority: 0,
       dockTimeFake: "00:00:00",
       timeFakeOverhead: "00:00:00",
-      salesChannels: [{ id: "1" }],
+      // Plain ids: VTEX reads and returns ["1"], not [{ id: "1" }].
+      salesChannels: ["1"],
       warehouseIds: data.warehouseIds ?? [],
       wmsEndPoint: "",
       pickupStoreInfo: { isPickupStore: false, storeId: null },
@@ -1139,26 +1205,66 @@ export async function createSellerDock(data: {
 /**
  * Update a loading dock.
  */
+/**
+ * GET /api/logistics/pvt/configuration/docks/{id}
+ * Single dock. Needed because the update endpoint replaces the whole record.
+ */
+export async function getSellerDock(dockId: string): Promise<VtexDock> {
+  return vtexSellerFetch<VtexDock>(
+    `/api/logistics/pvt/configuration/docks/${encodeURIComponent(dockId)}`
+  );
+}
+
+/**
+ * POST /api/logistics/pvt/configuration/docks — with the id in the BODY.
+ *
+ * 🔴 Two separate bugs were fixed here, established against dock `1` on
+ * franceretailer1388:
+ *
+ * 1. The old code posted to `/configuration/docks/{dockId}`, which answers
+ *    `The requested resource does not support http method 'POST'`. The tool
+ *    never updated anything — it always failed. The update shares the create
+ *    endpoint ("Create or update dock"), keyed by the `id` in the body.
+ * 2. It also sent a hardcoded body, which once the path was right would have
+ *    dropped `freightTableIds: ["1"]` (unlinking Standard Delivery from freight
+ *    calculation), dropped `isActive: true`, reset `priority` from 1 to 0, and
+ *    sent `salesChannels: [{ id: "1" }]` where VTEX uses `["1"]`.
+ *
+ * So the current record is read and merged. `freightTableIds` is exposed
+ * because the dock is the only place the dock ↔ shipping policy link lives.
+ */
 export async function updateSellerDock(
   dockId: string,
-  data: { name: string; warehouseIds?: string[] }
-): Promise<void> {
-  await vtexSellerFetch(
-    `/api/logistics/pvt/configuration/docks/${encodeURIComponent(dockId)}`,
-    {
-      method: "POST",
-      body: JSON.stringify({
-        id: dockId,
-        name: data.name,
-        priority: 0,
-        dockTimeFake: "00:00:00",
-        timeFakeOverhead: "00:00:00",
-        salesChannels: [{ id: "1" }],
-        warehouseIds: data.warehouseIds ?? [],
-        wmsEndPoint: "",
-        pickupStoreInfo: { isPickupStore: false, storeId: null },
-      }),
-    }
+  updates: {
+    name?: string;
+    warehouseIds?: string[];
+    freightTableIds?: string[];
+    priority?: number;
+    isActive?: boolean;
+  }
+): Promise<VtexDock> {
+  const current = await getSellerDock(dockId);
+
+  const body: VtexDock = {
+    ...current,
+    id: current.id,
+    name: updates.name ?? current.name,
+    warehouseIds: updates.warehouseIds ?? current.warehouseIds,
+    freightTableIds: updates.freightTableIds ?? current.freightTableIds,
+    priority: updates.priority ?? current.priority,
+    isActive: updates.isActive ?? current.isActive,
+  };
+
+  await vtexSellerFetch("/api/logistics/pvt/configuration/docks", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+
+  return readBackUntil(
+    () => getSellerDock(dockId),
+    (d) =>
+      d.name === body.name &&
+      (d.freightTableIds ?? []).join(",") === (body.freightTableIds ?? []).join(",")
   );
 }
 

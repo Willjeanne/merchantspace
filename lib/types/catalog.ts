@@ -126,7 +126,12 @@ export interface VtexPrice {
 export interface VtexWarehouse {
   id: string;
   name: string;
-  warehouseDocks: Array<{ dockId: string; time: string; cost: string }>;
+  /** `cost` comes back as a number (0.0), not the string the form sends. */
+  warehouseDocks: Array<{ dockId: string; time: string; cost: number | string }>;
+  pickupPointIds: string[];
+  priority: number;
+  isActive: boolean;
+  sellerId: string | null;
 }
 
 export interface VtexInventoryBalance {
@@ -147,10 +152,20 @@ export interface VtexDock {
   priority: number;
   dockTimeFake: string;
   timeFakeOverhead: string;
-  salesChannels: Array<{ id: string }>;
-  warehouseIds: string[];
-  wmsEndPoint: string;
+  /** Plain ids, e.g. `["1"]` — NOT `[{ id: "1" }]`, which is what this app used to send. */
+  salesChannels: string[];
+  warehouseIds?: string[];
+  /**
+   * Shipping policies served by this dock. THIS is where the dock ↔ shipping
+   * policy link lives; a policy cannot declare its own docks. Dropping this
+   * field on an update unlinks every policy from the dock.
+   */
+  freightTableIds: string[];
+  isActive: boolean;
+  wmsEndPoint: string | null;
   pickupStoreInfo: { isPickupStore: boolean; storeId: string | null };
+  deliveryAgreementsIds?: string[];
+  shippingRatesProviders?: unknown[];
 }
 
 export interface VtexCarrier {

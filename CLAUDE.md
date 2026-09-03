@@ -53,6 +53,7 @@ NEXTAUTH_URL=http://localhost:3000
   - [~] Phase 2 — sellers / onboarding : lecture OK (46 outils), erreurs de permission
         rendues lisibles *(écritures Seller Register toujours bloquées)*
   - [x] Phase 3 — shipping policies read/create/update (49 outils) · validé en live
+  - [x] Fix docks/warehouses : updates réparés + `freightTableIds` exposé (51 outils)
   - [ ] Phase 4 — images SKU *(bloqué : permission `vtex.catalog-images`)*
 
 ## Build order
@@ -65,6 +66,49 @@ NEXTAUTH_URL=http://localhost:3000
 7. Polish + seed data
 
 ## Session log
+
+### Session 2026-09-03 — 🔴 docks & warehouses : deux outils cassés depuis toujours
+
+**Déclencheur :** une session claude.ai a créé la policy `2` avec
+`vtex_create_shipping_policy`, puis a refusé de rattacher le dock, en expliquant que
+`vtex_update_dock` n'expose que `dockId/name/warehouseIds` et que l'endpoint remplace
+tout — donc que l'appeler effacerait `freightTableIds`. Ce raisonnement était juste sur
+le fond et a évité une casse.
+
+**Ce que la vérification a montré — les deux outils ne marchaient pas du tout :**
+- `POST /api/logistics/pvt/configuration/docks/{dockId}` → *« The requested resource does
+  not support http method 'POST' »*
+- `PUT /api/logistics/pvt/configuration/warehouses/{id}` → même refus sur `PUT`
+
+L'update **partage l'endpoint de création** : `POST` sur la collection, l'`id` dans le
+corps (« Create or update dock/warehouse »). Donc `vtex_update_dock` et
+`vtex_update_warehouse` échouaient à chaque appel depuis leur écriture. Rien n'a jamais
+été détruit — mais rien n'a jamais fonctionné non plus.
+
+**Le second bug, réel dès que le chemin est corrigé** : les deux envoyaient un corps codé
+en dur. Sur le dock `1`, un simple renommage aurait effacé `freightTableIds: ["1"]`
+(déliant Standard Delivery du calcul de frais), effacé `isActive`, remis `priority` de 1
+à 0, et envoyé `salesChannels: [{id:"1"}]` là où VTEX utilise `["1"]`.
+
+**Fait :**
+- `lib/types/catalog.ts` : `VtexDock` corrigé (`salesChannels: string[]`, ajout de
+  `freightTableIds`, `isActive`, `warehouseIds` **optionnel** — ce compte ne le renvoie
+  pas) ; `VtexWarehouse` complété (`pickupPointIds`, `priority`, `isActive`, `sellerId`,
+  `cost: number | string`).
+- `lib/vtex/catalog.ts` : `getSellerDock()`, `getSellerWarehouse()`, et les deux updates
+  réécrits en read-modify-write sur le bon endpoint. `readBackUntil()` ajouté — voir
+  gotcha propagation asynchrone.
+- `lib/mcp/tools/catalog.ts` : `vtex_get_dock`, `vtex_get_warehouse` ; `vtex_update_dock`
+  expose enfin **`freightTableIds`** (le rattachement policy ↔ dock), `priority`,
+  `isActive` ; `vtex_update_warehouse` expose `priority`, `isActive`, `pickupPointIds`.
+  Tous les champs deviennent optionnels. **51 outils.**
+- `components/fulfillment/DockCard.tsx` : garde sur `warehouseIds` désormais optionnel.
+
+**Vérifié en live** : policy `2` rattachée au dock `1` → `freightTableIds: ["1","2"]`,
+`priority` et `isActive` intacts ; renommage du dock → `freightTableIds` **préservé** ;
+renommage du warehouse → docks, `priority`, `isActive`, `pickupPointIds` **préservés** ;
+`vtex_list_shipping_policies` montre les deux policies liées au dock. Noms d'origine
+restaurés.
 
 ### Session 2026-09-02 (cont.) — MCP Phase 3 : shipping policies
 
@@ -412,6 +456,22 @@ besoin. À rouvrir seulement si la démo l'exige.
      `weekendAndHolidays` a effacé les flags.
   Donc : lire le record, fusionner, tout réémettre. Un PUT partiel détruit silencieusement
   le reste de la politique. C'est `updateShippingPolicy()` qui s'en charge.
+- **🔴 Les updates dock et warehouse passent par l'endpoint de CRÉATION.** `POST
+  /configuration/docks/{dockId}` et `PUT /configuration/warehouses/{id}` sont tous deux
+  refusés (*« does not support http method »*). Il faut `POST` sur la **collection** avec
+  l'`id` dans le corps. Deux outils MCP ont échoué silencieusement des mois pour ça.
+- **🔴 Le lien policy ↔ dock vit dans `dock.freightTableIds`, pas dans la policy.** Une
+  shipping policy ne peut pas déclarer ses docks. Une policy sans dock **n'apparaît jamais
+  en simulation**, même active. `vtex_update_dock` prend la liste complète voulue
+  (`["1","2"]`), pas un ajout incrémental.
+- **🔴 Dock et warehouse sont aussi des REMPLACEMENTS complets.** Tout champ omis est
+  perdu : `freightTableIds`, `isActive`, `priority`, `pickupPointIds`, `sellerId`. Comme
+  pour les shipping policies : lire, fusionner, tout réémettre.
+- **Les écritures Logistics se propagent de façon asynchrone.** Une relecture immédiate
+  après un `POST` réussi peut renvoyer l'enregistrement d'avant — observé sur le dock `1`,
+  où un renommage et un changement de `freightTableIds` étaient tous deux invisibles à la
+  première relecture, corrects une seconde après. `readBackUntil()` relit jusqu'à ce que
+  l'enregistrement reflète l'écriture (500ms/1,5s/3s). Même piège que l'OMS.
 - **`carrierInfo.linkedDocks` n'est peuplé que par la LISTE.** Même politique, deux
   réponses : `GET /shipping-policies` renvoie le dock lié, `GET /shipping-policies/{id}`
   renvoie `[]`. Lire les docks liés depuis la liste, jamais depuis le get par id.
@@ -469,6 +529,15 @@ besoin. À rouvrir seulement si la démo l'exige.
   actuelle**, et portent déjà `ProductCommissionPercentage` /
   `FreightCommissionPercentage`. C'est la surface historique, moins riche que Seller
   Register (pas d'override par catégorie) mais disponible sans nouvelle permission.
+- **🔴 claude.ai met la liste d'outils MCP en cache, indexée sur l'URL du connecteur.**
+  Après un déploiement ajoutant des outils, le connecteur continue d'annoncer l'ancienne
+  liste — et supprimer puis recréer le connecteur avec **la même URL** ne change rien, la
+  clé de cache est identique. Symptôme trompeur : la session répond honnêtement « cet
+  outil n'existe pas », et l'ancien *titre* d'un outil renommé reste visible.
+  Contournement : ajouter un paramètre inerte à l'URL, `&v=2`, puis `&v=3`… La route ne lit
+  que `token` (`app/api/mcp/route.ts`), tout autre paramètre est ignoré. Vérifier le
+  serveur avant de suspecter le code :
+  `curl -s -X POST '<url>' -H 'Content-Type: application/json' -H 'Accept: application/json, text/event-stream' -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'`
 - **`MCP_SERVER_TOKEN` manquait dans `.env.local`.** Sans lui la route `/api/mcp` renvoie
   500 « not configured » en local (fail-closed voulu). Ajouté le 2026-09-02 dans le
   `.env.local` (gitignoré), avec **la même valeur que sur Vercel** — décision assumée :
