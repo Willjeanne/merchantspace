@@ -1239,6 +1239,8 @@ export async function updateSellerDock(
     name?: string;
     warehouseIds?: string[];
     freightTableIds?: string[];
+    /** Trade policy (sales channel) ids. This is the dock ↔ trade policy link. */
+    salesChannels?: string[];
     priority?: number;
     isActive?: boolean;
   }
@@ -1251,6 +1253,7 @@ export async function updateSellerDock(
     name: updates.name ?? current.name,
     warehouseIds: updates.warehouseIds ?? current.warehouseIds,
     freightTableIds: updates.freightTableIds ?? current.freightTableIds,
+    salesChannels: updates.salesChannels ?? current.salesChannels,
     priority: updates.priority ?? current.priority,
     isActive: updates.isActive ?? current.isActive,
   };

@@ -54,6 +54,7 @@ NEXTAUTH_URL=http://localhost:3000
         rendues lisibles *(écritures Seller Register toujours bloquées)*
   - [x] Phase 3 — shipping policies read/create/update (49 outils) · validé en live
   - [x] Fix docks/warehouses : updates réparés + `freightTableIds` exposé (51 outils)
+  - [x] Tables de fret + chaîne shipping complète (57 outils) · validé en live
   - [ ] Phase 4 — images SKU *(bloqué : permission `vtex.catalog-images`)*
 
 ## Build order
@@ -66,6 +67,46 @@ NEXTAUTH_URL=http://localhost:3000
 7. Polish + seed data
 
 ## Session log
+
+### Session 2026-09-03 (cont.) — tables de fret + chaîne shipping complète
+
+**Objectif :** tout piloter depuis claude.ai, y compris la table de fret, et pouvoir
+câbler warehouse → dock → shipping policy → trade policy.
+
+**Pas besoin d'upload de fichier.** `POST /configuration/freights/{carrierId}/values/update`
+prend un tableau JSON. Le `carrierId` **est l'id de la shipping policy**.
+
+**Sémantique établie en live sur la policy `2` :**
+| `operationType` | Effet |
+|---|---|
+| `1` | **UPSERT** sur la clé (plage CP + plage poids + pays). Réémettre une ligne identique ne duplique pas ; avec un prix différent, ça met à jour (5 → 9 observé) |
+| `2` | update, idem |
+| `3` | supprime cette ligne, laisse les autres |
+
+Donc **les écritures n'ont jamais besoin de lire la table** — ce qui tombe bien, car
+**la table n'est pas lisible en entier** : `/{carrierId}/values` renvoie 500, seul
+`/{carrierId}/{codePostal}/values` répond. Un write est un upsert des lignes nommées,
+pas un remplacement.
+
+**Fait :**
+- `lib/vtex/freight-rates.ts` : `listFreightTables()`, `getFreightRates()`,
+  `setFreightRates()`, `deleteFreightRates()`. Entrée en euros et en jours ; conversions
+  internes (complétion CP à 8 chiffres, prix en chaîne décimale, `timeCost` en
+  `D.HH:MM:SS`). `assertNoOverlap()` refuse les plages qui se chevauchent **avant** tout
+  appel. Lecture réduite aux champs porteurs (la brute renvoie une douzaine de `null`).
+- `lib/vtex/shipping-setup.ts` : `listTradePolicies()` et `checkShippingSetup()`, qui
+  parcourt la chaîne et dit ce qui manque. Sonde optionnelle par code postal.
+- `lib/mcp/tools/shipping.ts` : **nouveau fichier** regroupant tout le shipping — les 4
+  outils policy y ont été déplacés depuis `catalog.ts` (qui redescend à 564 lignes), plus
+  `vtex_list_freight_tables`, `vtex_get_freight_rates`, `vtex_set_freight_rates`,
+  `vtex_delete_freight_rates`, `vtex_list_trade_policies`, `vtex_check_shipping_setup`.
+- `vtex_update_dock` expose désormais aussi **`salesChannels`** — le maillon trade policy.
+- **57 outils.**
+
+**Vérifié en live** : garde-fou de chevauchement → refus avec la plage fautive nommée,
+rien envoyé ; table demandée posée sur la policy 2 (5 € `00000001`–`00031000` J+1, 6 €
+`00031001`–`00099999` J+2) ; `vtex_check_shipping_setup` policy 2 + CP 75001 →
+**`ready: true`**, dock `1`, trade policy `1`, warehouse `1_1`, cote 6 €.
 
 ### Session 2026-09-03 — 🔴 docks & warehouses : deux outils cassés depuis toujours
 
@@ -456,6 +497,21 @@ besoin. À rouvrir seulement si la démo l'exige.
      `weekendAndHolidays` a effacé les flags.
   Donc : lire le record, fusionner, tout réémettre. Un PUT partiel détruit silencieusement
   le reste de la politique. C'est `updateShippingPolicy()` qui s'en charge.
+- **🔴 Les codes postaux des tables de fret sont stockés sur 8 chiffres, complétés à
+  gauche.** `10000` → `"00010000"`. Une saisie humaine à 5 chiffres non complétée désigne
+  une plage totalement différente. `padPostalCode()` s'en charge.
+- **La table de fret n'est pas lisible en entier.** `/freights/{id}/values` → 500. Seul
+  `/freights/{id}/{codePostal}/values` répond, et ne renvoie que les lignes couvrant *ce*
+  code postal. Donc pas de read-modify-write possible, et pas de « montre-moi ma table ».
+  L'upsert par `operationType: 1` rend ça sans conséquence pour les écritures.
+- **`GET /configuration/freights` est la surface de diagnostic des tables.** Elle porte
+  `freightTableValueError` — une table vide s'annonce elle-même
+  (*« No files to proccess… »*) — et l'erreur **s'effface** après une écriture par API,
+  pas seulement après un upload de fichier (vérifié).
+- **La chaîne shipping complète, et où vit chaque maillon :**
+  `warehouse.warehouseDocks[].dockId` → dock ; `dock.freightTableIds` → policy ;
+  `dock.salesChannels` → trade policy ; puis les lignes de la table de fret. **Aucun de
+  ces liens n'est visible depuis la policy**, d'où `vtex_check_shipping_setup`.
 - **🔴 Les updates dock et warehouse passent par l'endpoint de CRÉATION.** `POST
   /configuration/docks/{dockId}` et `PUT /configuration/warehouses/{id}` sont tous deux
   refusés (*« does not support http method »*). Il faut `POST` sur la **collection** avec

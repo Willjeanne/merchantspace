@@ -3,6 +3,7 @@ import { registerOrderTools } from "./tools/orders";
 import { registerCatalogTools } from "./tools/catalog";
 import { registerPaymentTools } from "./tools/payments";
 import { registerSellerTools } from "./tools/sellers";
+import { registerShippingTools } from "./tools/shipping";
 import { registerCreateProductApp } from "./apps/register";
 
 /**
@@ -15,5 +16,6 @@ export function registerVtexTools(server: McpServer) {
   registerCatalogTools(server);
   registerPaymentTools(server);
   registerSellerTools(server);
+  registerShippingTools(server);
   registerCreateProductApp(server);
 }
