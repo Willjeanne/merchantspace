@@ -23,12 +23,14 @@ import {
   getSkuPrice,
   setSkuPrice,
   getSellerWarehouses,
+  getSellerWarehouse,
   createSellerWarehouse,
   updateSellerWarehouse,
   deleteSellerWarehouse,
   getSkuInventory,
   setSkuInventory,
   getSellerDocks,
+  getSellerDock,
   createSellerDock,
   updateSellerDock,
   deleteSellerDock,
@@ -435,17 +437,32 @@ export function registerCatalogTools(server: McpServer) {
   );
 
   server.registerTool(
+    "vtex_get_warehouse",
+    {
+      title: "Get warehouse",
+      description:
+        "GET /api/logistics/pvt/configuration/warehouses/{id} — one warehouse in full, including its linked docks, priority and isActive.",
+      inputSchema: z.object({ id: z.string() }),
+    },
+    safe(({ id }) => getSellerWarehouse(id))
+  );
+
+  server.registerTool(
     "vtex_update_warehouse",
     {
       title: "Update warehouse",
-      description: "PUT /api/logistics/pvt/configuration/warehouses/{id}",
+      description:
+        "POST /api/logistics/pvt/configuration/warehouses with the id in the body — the update shares the create endpoint; PUT on /warehouses/{id} is rejected by VTEX. Omitted fields keep their current value: the endpoint replaces the whole record, so this tool reads the warehouse and merges your changes before sending.",
       inputSchema: z.object({
         id: z.string(),
-        name: z.string(),
+        name: z.string().optional(),
         warehouseDocks: z.array(warehouseDock).optional(),
+        priority: z.number().int().optional(),
+        isActive: z.boolean().optional(),
+        pickupPointIds: z.array(z.string()).optional(),
       }),
     },
-    safe(({ id, ...data }) => updateSellerWarehouse(id, data))
+    safe(({ id, ...updates }) => updateSellerWarehouse(id, updates))
   );
 
   server.registerTool(
@@ -510,17 +527,35 @@ export function registerCatalogTools(server: McpServer) {
   );
 
   server.registerTool(
+    "vtex_get_dock",
+    {
+      title: "Get loading dock",
+      description:
+        "GET /api/logistics/pvt/configuration/docks/{dockId} — one dock in full, including freightTableIds (the shipping policies it serves), priority and isActive.",
+      inputSchema: z.object({ dockId: z.string() }),
+    },
+    safe(({ dockId }) => getSellerDock(dockId))
+  );
+
+  server.registerTool(
     "vtex_update_dock",
     {
       title: "Update loading dock",
-      description: "POST /api/logistics/pvt/configuration/docks/{dockId} (VTEX uses POST for dock updates)",
+      description:
+        "POST /api/logistics/pvt/configuration/docks with the id in the body — the update shares the create endpoint; posting to /docks/{dockId} is rejected by VTEX. Omitted fields keep their current value: the endpoint replaces the whole record, so this tool reads the dock and merges your changes before sending. Use `freightTableIds` to attach shipping policies to this dock: that link lives on the DOCK, not on the policy, and a policy with no dock never appears in shipping simulation. Pass the full list you want, existing ids included — e.g. [\"1\",\"2\"] to keep policy 1 and add policy 2.",
       inputSchema: z.object({
         dockId: z.string(),
-        name: z.string(),
+        name: z.string().optional(),
         warehouseIds: z.array(z.string()).optional(),
+        freightTableIds: z
+          .array(z.string())
+          .optional()
+          .describe("Shipping policy ids served by this dock. Replaces the current list."),
+        priority: z.number().int().optional(),
+        isActive: z.boolean().optional(),
       }),
     },
-    safe(({ dockId, ...data }) => updateSellerDock(dockId, data))
+    safe(({ dockId, ...updates }) => updateSellerDock(dockId, updates))
   );
 
   server.registerTool(

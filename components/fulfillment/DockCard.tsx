@@ -69,7 +69,7 @@ export function DockCard({ dock }: DockCardProps) {
       <div className="flex-1 min-w-0">
         <p className="text-sm font-semibold text-zinc-800">{dock.name}</p>
         <p className="text-xs text-zinc-400 font-mono mt-0.5">ID: {dock.id}</p>
-        {dock.warehouseIds?.length > 0 && (
+        {dock.warehouseIds && dock.warehouseIds.length > 0 && (
           <p className="text-xs text-zinc-500 mt-1">
             Linked warehouses: {dock.warehouseIds.join(", ")}
           </p>
