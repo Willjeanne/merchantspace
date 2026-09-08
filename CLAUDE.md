@@ -84,14 +84,24 @@ has been exercised against a live account.
 
 ### Worth doing next
 
-- **Multi-account.** The only real remaining feature: today the seller account is
-  fixed in env vars, so each user needs their own deployment. All env reads are
-  centralised at the top of `lib/vtex/client.ts` — that is the isolation point.
 - `lib/vtex/catalog.ts` is past 1,100 lines. Extracting its logistics half is
   worthwhile and independent of any feature.
 - Tool argument shapes are inconsistent (`skuId` string vs `productId` integer;
   `update_brand` flat vs `update_product` nested). Harmonising them would help a
   model caller but changes tool contracts.
+
+## Two repos
+
+- `origin` — personal remote, where the work happens.
+- `vtex` — `VTEX-US-SE/merchantspace-mcp`, the shared repo colleagues clone.
+
+Push to `vtex` occasionally, when something is finished and verified, rather
+than on every change. Because its history was flattened at publication, use:
+
+```bash
+git fetch -q vtex
+git push vtex $(git commit-tree main^{tree} -p vtex/main -m "message"):main
+```
 
 ## Conventions established here
 
