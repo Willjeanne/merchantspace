@@ -12,7 +12,11 @@ import {
   setFreightRates,
   deleteFreightRates,
 } from "@/lib/vtex/freight-rates";
-import { listTradePolicies, checkShippingSetup } from "@/lib/vtex/shipping-setup";
+import {
+  listTradePolicies,
+  checkShippingSetup,
+  simulateShipping,
+} from "@/lib/vtex/shipping-setup";
 import { safe, safeNoArgs } from "../utils";
 
 /** One row of a shipping rate table, as a person would state it. */
@@ -179,6 +183,26 @@ export function registerShippingTools(server: McpServer) {
         "GET /api/catalog_system/pvt/saleschannel/list — the account's trade policies (sales channels). A dock is attached to one through its salesChannels, which vtex_update_dock sets.",
     },
     safeNoArgs(listTradePolicies)
+  );
+
+  server.registerTool(
+    "vtex_simulate_shipping",
+    {
+      title: "Simulate shipping for an address",
+      description:
+        "POST /api/checkout/pub/orderForms/simulation on the seller account — returns the delivery options a customer would actually see for one SKU at one postal code, with price and estimate. Read-only, and the only real proof that warehouse, dock, policy, trade policy and rate table line up: every other read can look correct while checkout shows nothing. Vary `quantity` — a rate row whose weight band stops below the cart weight drops that option with no error anywhere, so an option present at 1 and gone at 2 is a weight-band problem, not a coverage one.",
+      inputSchema: z.object({
+        skuId: z.string().describe("Seller catalog SKU id, e.g. \"7\""),
+        postalCode: z.string().describe('e.g. "75001"'),
+        quantity: z.number().int().min(1).optional().describe("Default 1. Raise it to expose weight-band ceilings"),
+        country: z.string().optional().describe("Three-letter ISO code. Default FRA"),
+        seller: z
+          .string()
+          .optional()
+          .describe('Default "1" — the account\'s own offers, which is what a seller portal quotes'),
+      }),
+    },
+    safe(simulateShipping)
   );
 
   server.registerTool(

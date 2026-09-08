@@ -172,3 +172,113 @@ export async function checkShippingSetup(
       : {}),
   };
 }
+
+// ─── Shipping simulation ─────────────────────────────────────────────────────
+
+/** One delivery option as a customer would see it at checkout. */
+export interface ShippingOption {
+  name: string;
+  /** As VTEX returns it, in cents. */
+  priceInCents: number;
+  /** The same figure in the account currency, for reading. */
+  price: number;
+  /** e.g. "4bd" (business days) or "2d". */
+  shippingEstimate: string;
+  deliveryChannel: string;
+}
+
+export interface ShippingSimulation {
+  skuId: string;
+  postalCode: string;
+  quantity: number;
+  country: string;
+  /** False when the SKU did not resolve — a catalog problem, not a shipping one. */
+  itemFound: boolean;
+  itemPriceInCents: number | null;
+  options: ShippingOption[];
+  /** VTEX's own messages, when it has something to say. */
+  messages: unknown[];
+  /** Present only when there is no option at all, with where to look. */
+  note?: string;
+}
+
+/**
+ * POST /api/checkout/pub/orderForms/simulation on the SELLER account.
+ *
+ * The end-to-end check: it answers what a customer would actually be charged,
+ * which is the only thing that proves warehouse, dock, policy, trade policy and
+ * rate table all line up. Every other read can look correct while checkout
+ * shows nothing.
+ *
+ * 🔴 Do NOT append `?sc=1`. With a sales channel the seller account answers 500
+ * `CHK0290.12` "A communication error with Sales Channel has occurred"; without
+ * it the same request succeeds. Verified on franceretailer1388.
+ *
+ * `seller: "1"` is the account itself, VTEX's convention for a store's own
+ * offers.
+ *
+ * This is also how a silent coverage hole surfaces. A rate row's weight band is
+ * part of its identity, so a band that stops too low simply drops the option:
+ * policy 1 capped at 500 while the SKU weighed 300, and Standard Delivery
+ * vanished from a two-item cart with no error anywhere.
+ */
+export async function simulateShipping(params: {
+  skuId: string;
+  postalCode: string;
+  quantity?: number;
+  country?: string;
+  seller?: string;
+}): Promise<ShippingSimulation> {
+  const { skuId, postalCode, quantity = 1, country = "FRA", seller = "1" } = params;
+
+  const raw = await vtexSellerFetch<{
+    items?: Array<{ id: string; price: number }>;
+    logisticsInfo?: Array<{
+      slas?: Array<{
+        id: string;
+        price: number;
+        shippingEstimate: string;
+        deliveryChannel: string;
+      }>;
+    }>;
+    messages?: unknown[];
+  }>("/api/checkout/pub/orderForms/simulation", {
+    method: "POST",
+    body: JSON.stringify({
+      items: [{ id: skuId, quantity, seller }],
+      postalCode,
+      country,
+    }),
+  });
+
+  const item = raw.items?.[0];
+  const options: ShippingOption[] = (raw.logisticsInfo?.[0]?.slas ?? []).map((s) => ({
+    name: s.id,
+    priceInCents: s.price,
+    price: s.price / 100,
+    shippingEstimate: s.shippingEstimate,
+    deliveryChannel: s.deliveryChannel,
+  }));
+
+  return {
+    skuId,
+    postalCode,
+    quantity,
+    country,
+    itemFound: Boolean(item),
+    itemPriceInCents: item?.price ?? null,
+    options,
+    messages: raw.messages ?? [],
+    ...(options.length
+      ? {}
+      : {
+          note: !item
+            ? `SKU ${skuId} did not resolve on this account, so shipping was never ` +
+              `evaluated. Check the SKU id and that it is active.`
+            : `No delivery option for postal code ${postalCode} at quantity ${quantity}. ` +
+              `Run vtex_check_shipping_setup for each policy, and check the rate rows' ` +
+              `weight bands: a band that stops below the cart weight drops the option ` +
+              `silently. Retry at quantity 1 to tell a weight problem from a coverage one.`,
+        }),
+  };
+}
