@@ -2,11 +2,9 @@ import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/server";
 import {
   listSellerProducts,
-  getSellerProduct,
   getSellerProductFull,
   updateSellerProduct,
   createSellerProduct,
-  getProductSkus,
   createSellerSku,
   updateSellerSku,
   addSkuImageByUrl,
@@ -69,21 +67,11 @@ export function registerCatalogTools(server: McpServer) {
   );
 
   server.registerTool(
-    "vtex_get_product",
-    {
-      title: "Get product by ID",
-      description: "GET /api/catalog/pvt/product/{productId} — raw product record.",
-      inputSchema: z.object({ productId: z.number().int() }),
-    },
-    safe(({ productId }) => getSellerProduct(productId))
-  );
-
-  server.registerTool(
     "vtex_get_product_full",
     {
       title: "Get full product detail",
       description:
-        "Product + all SKUs + prices + inventory, fetched in parallel with fallback strategies for Seller Portal accounts where the classic Catalog API 500s.",
+        "Product + all SKUs + prices + inventory, fetched in parallel. THE way to read a product on a Seller Portal account: it goes through the CatalogV2 endpoints that work, whereas the classic Catalog API (catalog/pvt/product and .../stockkeepingunit) answers 500 on these accounts — which is why no tool exposes it.",
       inputSchema: z.object({ productId: z.number().int() }),
     },
     safe(({ productId }) => getSellerProductFull(productId))
@@ -94,24 +82,20 @@ export function registerCatalogTools(server: McpServer) {
     {
       title: "Update product",
       description:
-        "Updates product fields. Fetches the current product first (with SKU-based reconstruction fallback) and merges — omitted fields keep their current value.",
+        "PUT /api/catalog-seller-portal/products/{productId} — updates a product. Omitted fields keep their current value: the endpoint is a full replace, so this tool reads the product and merges your changes before sending. Only fields this surface can store are accepted; Title, IsVisible, MetaTagDescription and DepartmentId have no counterpart on a Seller Portal account and are not exposed rather than being silently dropped. Returns the product as read back afterwards.",
       inputSchema: z.object({
         productId: z.number().int(),
         updates: z
           .object({
             Name: z.string().optional(),
-            DepartmentId: z.number().optional(),
+            Description: z.string().optional(),
             CategoryId: z.number().optional(),
             BrandId: z.number().optional(),
-            LinkId: z.string().optional(),
-            RefId: z.string().nullable().optional(),
-            IsVisible: z.boolean().optional(),
-            Description: z.string().optional(),
             IsActive: z.boolean().optional(),
-            Title: z.string().optional(),
-            MetaTagDescription: z.string().optional(),
+            RefId: z.string().nullable().optional().describe("Stored as externalId"),
+            LinkId: z.string().optional().describe("Stored as slug"),
           })
-          .describe("Partial VtexProduct — only include fields you want to change"),
+          .describe("Only include the fields you want to change"),
       }),
     },
     safe(({ productId, updates }) => updateSellerProduct(productId, updates))
@@ -146,16 +130,6 @@ export function registerCatalogTools(server: McpServer) {
   );
 
   // ─── SKUs ──────────────────────────────────────────────────────────────
-
-  server.registerTool(
-    "vtex_get_product_skus",
-    {
-      title: "Get product SKUs",
-      description: "GET /api/catalog/pvt/product/{productId}/stockkeepingunit — all SKUs for a product.",
-      inputSchema: z.object({ productId: z.number().int() }),
-    },
-    safe(({ productId }) => getProductSkus(productId))
-  );
 
   server.registerTool(
     "vtex_create_sku",

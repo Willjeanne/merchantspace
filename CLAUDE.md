@@ -58,6 +58,8 @@ NEXTAUTH_URL=http://localhost:3000
   - [x] `vtex_simulate_shipping` + plafond de poids policy 1 corrigé (58 outils)
   - [~] Phase 4 — images SKU : attache d'une image déjà hébergée **OK** ; upload de
         nouveaux octets prêt côté code mais *bloqué : permission `vtex.catalog-images`*
+  - [x] Audit des 29 lectures + `vtex_update_product` réparé, 2 outils morts retirés
+        (56 outils)
 
 ## Build order
 1. Module 0 → Module 1 (cette session)
@@ -69,6 +71,46 @@ NEXTAUTH_URL=http://localhost:3000
 7. Polish + seed data
 
 ## Session log
+
+### Session 2026-09-08 (cont.) — audit des 29 lectures, 3 outils morts trouvés
+
+**Méthode :** appel des 29 outils de lecture contre la prod, un par un. Jamais fait
+jusque-là — et c'est ce qui avait laissé passer `update_dock` et `update_warehouse`
+pendant des mois.
+
+**Résultat : 26/29.** Les trois échecs :
+| Outil | Cause |
+|---|---|
+| `vtex_get_product` | 500 — Catalog classique mort sur ce compte |
+| `vtex_get_product_skus` | 500 — idem |
+| `vtex_get_seller_commissions` | permission, **échec voulu** et désormais lisible |
+
+*(Deux autres échecs étaient une erreur de test de ma part : `skuId` est une **chaîne**
+dans `vtex_get_sku_price` et `vtex_get_sku_inventory`, j'avais passé un nombre. Les
+outils marchent. À noter : `productId` est un entier ailleurs — incohérence de typage qui
+fait trébucher, non corrigée.)*
+
+**Et une quatrième trouvaille en vérifiant les survivants : `vtex_update_product`
+échouait aussi.** Il faisait son PUT sur `/api/catalog/pvt/product/{id}`. La lecture avait
+un fallback SKU, **le PUT n'en avait aucun**. Donc l'outil MCP *et* le formulaire
+d'édition produit de l'app (`updateProductAction`) étaient cassés depuis le début.
+
+**Fait :**
+- `vtex_get_product` et `vtex_get_product_skus` **retirés** (56 outils), avec leurs deux
+  fonctions lib devenues orphelines. Ils ne peuvent structurellement pas marcher sur un
+  compte Seller Portal, et un modèle risquait de les choisir au lieu de
+  `vtex_get_product_full` qui fonctionne. Description de ce dernier durcie pour dire qu'il
+  est *la* voie de lecture d'un produit.
+- `updateSellerProduct()` réécrit sur `/api/catalog-seller-portal/products/{id}` en
+  read-modify-write (5e endpoint de cette API à se révéler être un remplacement complet).
+  L'entrée reste en PascalCase comme `createSellerProduct`, mais **seuls les champs que
+  cette surface sait stocker sont acceptés** : `Title`, `IsVisible`,
+  `MetaTagDescription` et `DepartmentId` n'ont pas d'équivalent et disparaissent de la
+  signature plutôt que d'être ignorés en silence. `lib/actions/catalog.ts` ajusté.
+
+**Vérifié en live** : renommage du produit 7 → statut, marque, catégorie, image et SKU
+**préservés** ; nom d'origine restauré. Poids de la liste d'outils mesuré : **39,5 Ko ≈
+9 900 tokens** envoyés à chaque session.
 
 ### Session 2026-09-08 (cont.) — images SKU : ce qui marche et ce qui attend un droit
 
@@ -637,6 +679,11 @@ besoin. À rouvrir seulement si la démo l'exige.
   est absent de l'union `OrderStatus` (vocabulaire marketplace). Un enum zod fermé sur un
   outil MCP seller rejette des filtres valides. VTEX documente explicitement qu'il faut
   tolérer les statuts inconnus plutôt que les rejeter.
+- **🔴 Écrire un produit passe par `/api/catalog-seller-portal/products/{id}`, jamais par
+  `/api/catalog/pvt/product/{id}`.** Le second répond 500 ici. C'est le **5e** endpoint de
+  cette famille à se révéler être un remplacement complet : produit, shipping policy,
+  dock, warehouse, et les lignes de fret exceptées (elles, c'est un upsert). Règle
+  générale sur ce compte : **lire, fusionner, tout réémettre.**
 - **L'API Catalog classique est morte sur ce compte (CatalogV2 pur).**
   `GET /api/catalog/pvt/stockkeepingunit/7` et `.../7/file` → **500**, alors que
   `/api/catalog-seller-portal/products/7` → 200. Conséquence : `POST

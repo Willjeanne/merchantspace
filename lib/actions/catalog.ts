@@ -187,8 +187,6 @@ export async function updateProductAction(
       BrandId: brandId,
       RefId: refId || null,
       Description: description,
-      Title: title || productName,
-      IsVisible: true,
       IsActive: isActive,
     });
     revalidatePath(`/catalog/${productId}`);

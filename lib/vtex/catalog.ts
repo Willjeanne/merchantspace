@@ -109,14 +109,6 @@ export async function listSellerProducts(
 }
 
 /**
- * Get single product by ID from seller catalog.
- * Falls back to SKU-based reconstruction if catalog/pvt/product returns 500.
- */
-export async function getSellerProduct(productId: number): Promise<VtexProduct> {
-  return vtexSellerFetch<VtexProduct>(`/api/catalog/pvt/product/${productId}`);
-}
-
-/**
  * Get a full product detail: product + all SKUs + prices + inventory.
  *
  * Strategy (most reliable first):
@@ -239,70 +231,65 @@ export async function getSellerProductFull(productId: number): Promise<{
 }
 
 /**
- * Update product fields. Fetches current data first to preserve un-edited fields.
- * Falls back to SKU-based reconstruction if catalog/pvt/product GET returns 500.
+ * Updates a product through the Seller Portal API.
+ *
+ * 🔴 This used to GET and PUT `/api/catalog/pvt/product/{id}` — the classic
+ * Catalog endpoint, which answers 500 on a Seller Portal account. The GET had a
+ * SKU-based fallback; the PUT had none, so every update failed. Both the MCP
+ * tool and the product edit form in the app were broken from the start.
+ *
+ * `/api/catalog-seller-portal/products/{id}` is the surface that works — the
+ * same one createSellerProduct and addProductImageViaSellerPortal use. Like
+ * every other write in this API it is a full REPLACE, so the record is read,
+ * merged and re-sent whole.
+ *
+ * The input stays PascalCase to match createSellerProduct, but only the fields
+ * this surface can actually store are accepted. `Title`, `IsVisible`,
+ * `MetaTagDescription` and `DepartmentId` have no counterpart here and are gone
+ * from the signature rather than silently dropped.
  */
+export interface UpdateSellerProductInput {
+  Name?: string;
+  Description?: string;
+  CategoryId?: number;
+  BrandId?: number;
+  IsActive?: boolean;
+  /** Stored as `externalId`. */
+  RefId?: string | null;
+  /** Stored as `slug`. */
+  LinkId?: string;
+}
+
 export async function updateSellerProduct(
   productId: number,
-  updates: Partial<VtexProduct>
-): Promise<VtexProduct> {
-  // Try to GET current product to preserve fields we don't overwrite
-  let current: VtexProduct | null = await vtexSellerFetch<VtexProduct>(
-    `/api/catalog/pvt/product/${productId}`
-  ).catch(() => null);
+  updates: UpdateSellerProductInput
+): Promise<SellerPortalProduct> {
+  const path = `/api/catalog-seller-portal/products/${productId}`;
+  const current = await vtexSellerFetch<SellerPortalProduct>(path);
 
-  // If GET failed (e.g. 500 for admin-created products), reconstruct from SKU data
-  if (!current) {
-    const idsRes = await vtexSellerFetch<GetProductAndSkuIdsResponse>(
-      `/api/catalog_system/pvt/products/GetProductAndSkuIds?page=1&pagesize=200`
-    ).catch(() => null);
-    const skuIds = idsRes?.data?.[String(productId)] ?? [];
-    const firstSkuId = skuIds[0];
+  const body: SellerPortalProduct = {
+    ...current,
+    name: updates.Name ?? current.name,
+    description: updates.Description ?? current.description,
+    brandId: updates.BrandId !== undefined ? String(updates.BrandId) : current.brandId,
+    categoryIds:
+      updates.CategoryId !== undefined ? [String(updates.CategoryId)] : current.categoryIds,
+    status:
+      updates.IsActive !== undefined
+        ? updates.IsActive
+          ? "active"
+          : "inactive"
+        : current.status,
+    slug: updates.LinkId ?? current.slug,
+    externalId: updates.RefId !== undefined ? (updates.RefId ?? undefined) : current.externalId,
+  };
 
-    if (firstSkuId) {
-      const skuDetail = await vtexSellerFetch<VtexSkuById>(
-        `/api/catalog_system/pvt/sku/stockKeepingUnitById/${firstSkuId}`
-      ).catch(() => null);
-
-      if (skuDetail) {
-        // Build a minimal VtexProduct shell from available SKU data
-        current = {
-          Id: productId,
-          Name: skuDetail.ProductName,
-          Description: skuDetail.ProductDescription ?? "",
-          CategoryId: skuDetail.CategoryId ?? updates.CategoryId ?? 0,
-          BrandId: Number(skuDetail.BrandId),
-          RefId: skuDetail.ProductRefId,
-          Title: skuDetail.ProductName,
-          IsActive: skuDetail.IsActive,
-          IsVisible: true,
-          LinkId: skuDetail.ProductName
-            .toLowerCase()
-            .replace(/[^a-z0-9]+/g, "-")
-            .replace(/^-|-$/g, ""),
-          DepartmentId: 0,
-          MetaTagDescription: "",
-          Score: null,
-        };
-      }
-    }
-  }
-
-  if (!current) {
-    throw new Error(
-      `Could not fetch product ${productId} for update — product not found`
-    );
-  }
-
-  const merged = { ...current, ...updates };
-  return vtexSellerFetch<VtexProduct>(`/api/catalog/pvt/product/${productId}`, {
-    method: "PUT",
-    body: JSON.stringify(merged),
-  });
+  await vtexSellerFetch(path, { method: "PUT", body: JSON.stringify(body) });
+  return vtexSellerFetch<SellerPortalProduct>(path);
 }
 
 /** Full Seller Portal product shape (GET + PUT body) */
-interface SellerPortalProduct {
+export interface SellerPortalProduct {
   id: string;
   status: string;
   name: string;
@@ -417,16 +404,6 @@ export async function createSellerProduct(data: {
 }
 
 // ─── SKUs ────────────────────────────────────────────────────────────────────
-
-/**
- * Get all SKUs for a product.
- */
-export async function getProductSkus(productId: number): Promise<VtexSku[]> {
-  const res = await vtexSellerFetch<VtexSku[]>(
-    `/api/catalog/pvt/product/${productId}/stockkeepingunit`
-  );
-  return Array.isArray(res) ? res : [];
-}
 
 /**
  * Create a SKU in the seller catalog.
