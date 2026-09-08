@@ -9,7 +9,6 @@ import {
   setSkuInventory,
   getSellerWarehouses,
   updateSellerProduct,
-  updateSellerSku,
   addSkuImageByUrl,
   addSkuImageByFile,
   createSellerBrand,

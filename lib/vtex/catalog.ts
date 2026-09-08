@@ -429,18 +429,79 @@ export async function createSellerSku(data: {
 /**
  * Update an existing SKU.
  */
+/**
+ * Fields of a SKU this account can actually store, in the PascalCase the rest of
+ * this module uses. `MeasurementUnit`, `UnitMultiplier` and the non-packaged
+ * `Height`/`Width`/`Length`/`WeightKg` have no Seller Portal counterpart and are
+ * left out rather than accepted and dropped.
+ */
+export interface UpdateSellerSkuInput {
+  Name?: string;
+  IsActive?: boolean;
+  /** Stored as `externalId`. */
+  RefId?: string;
+  /** Kilograms here; stored as grams, like createSellerProduct. */
+  PackagedWeightKg?: number;
+  PackagedHeight?: number;
+  PackagedWidth?: number;
+  PackagedLength?: number;
+  ManufacturerCode?: string;
+}
+
+/**
+ * Updates a SKU through the Seller Portal product it belongs to.
+ *
+ * 🔴 This used to GET and PUT `/api/catalog/pvt/stockkeepingunit/{skuId}`, both
+ * of which answer 500 on a Seller Portal account, so every call failed.
+ *
+ * There is no per-SKU write surface here: a SKU lives inside its product's
+ * `skus[]`. So the SKU's product is resolved through
+ * `stockKeepingUnitById/{skuId}` (which does work), the product is read, the one
+ * SKU is merged in place, and the whole product is re-sent — the same full
+ * replace as everywhere else in this API.
+ */
 export async function updateSellerSku(
   skuId: number,
-  updates: Partial<VtexSku>
-): Promise<VtexSku> {
-  const current = await vtexSellerFetch<VtexSku>(
-    `/api/catalog/pvt/stockkeepingunit/${skuId}`
+  updates: UpdateSellerSkuInput
+): Promise<SellerPortalProduct> {
+  const skuDetail = await vtexSellerFetch<{ ProductId: number }>(
+    `/api/catalog_system/pvt/sku/stockKeepingUnitById/${skuId}`
   );
-  const merged = { ...current, ...updates };
-  return vtexSellerFetch<VtexSku>(`/api/catalog/pvt/stockkeepingunit/${skuId}`, {
-    method: "PUT",
-    body: JSON.stringify(merged),
-  });
+  const path = `/api/catalog-seller-portal/products/${skuDetail.ProductId}`;
+  const current = await vtexSellerFetch<SellerPortalProduct>(path);
+
+  if (!(current.skus ?? []).some((sku) => String(sku.id) === String(skuId))) {
+    throw new Error(
+      `SKU ${skuId} is not listed on product ${skuDetail.ProductId}. Nothing was sent.`
+    );
+  }
+
+  const body: SellerPortalProduct = {
+    ...current,
+    skus: current.skus.map((sku) =>
+      String(sku.id) !== String(skuId)
+        ? sku
+        : {
+            ...sku,
+            name: updates.Name ?? sku.name,
+            isActive: updates.IsActive ?? sku.isActive,
+            externalId: updates.RefId ?? sku.externalId,
+            weight:
+              updates.PackagedWeightKg !== undefined
+                ? Math.max(1, Math.round(updates.PackagedWeightKg * 1000))
+                : sku.weight,
+            dimensions: {
+              width: updates.PackagedWidth ?? sku.dimensions.width,
+              height: updates.PackagedHeight ?? sku.dimensions.height,
+              length: updates.PackagedLength ?? sku.dimensions.length,
+            },
+            manufacturerCode: updates.ManufacturerCode ?? sku.manufacturerCode,
+          }
+    ),
+  };
+
+  await vtexSellerFetch(path, { method: "PUT", body: JSON.stringify(body) });
+  return vtexSellerFetch<SellerPortalProduct>(path);
 }
 
 // ─── Product Images (Seller Portal) ──────────────────────────────────────────

@@ -122,7 +122,11 @@ export async function vtexFetch<T>(
           throw new VtexServerError(response.status, endpoint, msg);
         }
         console.warn(`[VTEX] ${response.status} on ${endpoint}: ${body}`);
-        throw new VtexApiError(response.status, body || response.statusText, endpoint);
+        throw new VtexApiError(
+          response.status,
+          describeErrorBody(body, response.status, endpoint),
+          endpoint
+        );
       }
     }
   }
@@ -187,7 +191,11 @@ export async function vtexSellerFetch<T>(
           console.warn(`[VTEX/Seller] ${msg} on ${endpoint}`);
           throw new VtexServerError(response.status, endpoint, msg);
         }
-        throw new VtexApiError(response.status, body || response.statusText, endpoint);
+        throw new VtexApiError(
+          response.status,
+          describeErrorBody(body, response.status, endpoint),
+          endpoint
+        );
       }
     }
   }
@@ -195,6 +203,25 @@ export async function vtexSellerFetch<T>(
   assertJsonResponse(response, path);
 
   return parseVtexBody<T>(response);
+}
+
+/**
+ * Turns an error body into something worth reading.
+ *
+ * A failing VTEX route sometimes answers with a full HTML error page. Dumping it
+ * verbatim into a tool result gives the caller 150 characters of `<!DOCTYPE
+ * html>` and no diagnosis — observed on `PUT /seller-register/pvt/sellers/{id}/commissions`.
+ */
+function describeErrorBody(body: string, status: number, endpoint: string): string {
+  const trimmed = body.trim();
+  const looksLikeHtml = /^<(!doctype|html)/i.test(trimmed);
+  if (!looksLikeHtml) return trimmed || `HTTP ${status} on ${endpoint}`;
+  return (
+    `VTEX answered ${endpoint} with an HTML error page (HTTP ${status}) instead of ` +
+    `JSON. On this account that means the route is not available to this App Key — ` +
+    `either the app is not installed or the key lacks the resource. A permission or ` +
+    `provisioning problem, not a code error.`
+  );
 }
 
 /**

@@ -17,7 +17,6 @@ import {
   getSellerBrands,
   createSellerBrand,
   updateSellerBrand,
-  deleteSellerBrand,
   getSkuPrice,
   setSkuPrice,
   getSellerWarehouses,
@@ -157,27 +156,21 @@ export function registerCatalogTools(server: McpServer) {
     {
       title: "Update SKU",
       description:
-        "GET current SKU then PUT /api/catalog/pvt/stockkeepingunit/{skuId} merged with the given updates.",
+        "Updates a SKU through the Seller Portal product it belongs to — there is no per-SKU write surface on these accounts, so the product is read, this SKU merged in place, and the whole product re-sent. Omitted fields keep their value. PackagedWeightKg is in kilograms and stored as grams. Only fields this surface can store are exposed; MeasurementUnit, UnitMultiplier and the non-packaged dimensions have no counterpart. Returns the product as read back afterwards.",
       inputSchema: z.object({
         skuId: z.number().int(),
         updates: z
           .object({
-            IsActive: z.boolean().optional(),
             Name: z.string().optional(),
-            RefId: z.string().optional(),
+            IsActive: z.boolean().optional(),
+            RefId: z.string().optional().describe("Stored as externalId"),
+            PackagedWeightKg: z.number().optional().describe("Kilograms; stored as grams"),
             PackagedHeight: z.number().optional(),
-            PackagedLength: z.number().optional(),
             PackagedWidth: z.number().optional(),
-            PackagedWeightKg: z.number().optional(),
-            Height: z.number().nullable().optional(),
-            Length: z.number().nullable().optional(),
-            Width: z.number().nullable().optional(),
-            WeightKg: z.number().nullable().optional(),
+            PackagedLength: z.number().optional(),
             ManufacturerCode: z.string().optional(),
-            MeasurementUnit: z.string().optional(),
-            UnitMultiplier: z.number().optional(),
           })
-          .describe("Partial VtexSku — only include fields you want to change"),
+          .describe("Only include the fields you want to change"),
       }),
     },
     safe(({ skuId, updates }) => updateSellerSku(skuId, updates))
@@ -343,16 +336,6 @@ export function registerCatalogTools(server: McpServer) {
       inputSchema: brandFields.extend({ id: z.number().int() }),
     },
     safe(({ id, ...data }) => updateSellerBrand(id, data))
-  );
-
-  server.registerTool(
-    "vtex_delete_brand",
-    {
-      title: "Delete brand",
-      description: "DELETE /api/catalog/pvt/brand/{id} — classic Catalog API (no Seller Portal delete endpoint exists).",
-      inputSchema: z.object({ id: z.number().int() }),
-    },
-    safe(({ id }) => deleteSellerBrand(id))
   );
 
   // ─── Pricing ───────────────────────────────────────────────────────────
