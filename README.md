@@ -1,8 +1,27 @@
-# MerchantSpace — Custom VTEX Seller Portal
+# MerchantSpace — a custom VTEX Seller Portal
 
-A modern, white-label Seller Portal built on top of VTEX native APIs. Replaces the deprecated VTEX Seller Portal with a clean admin SaaS interface.
+A white-label Seller Portal built on native VTEX APIs, replacing the deprecated
+one with a clean admin interface — plus an **MCP server** so the same operations
+can be driven from a conversation with an assistant.
 
-**Stack:** Next.js 14 App Router · TypeScript · Tailwind CSS · shadcn/ui · Vercel
+Built for prospect demos and as a working reference for what these APIs actually
+do on a Seller Portal account. It is not a supported VTEX product.
+
+**Stack:** Next.js 16 App Router · TypeScript · Tailwind CSS · shadcn/ui · Vercel
+
+---
+
+## Read this first
+
+**[docs/vtex-gotchas.md](docs/vtex-gotchas.md)** — everything this project
+established against a live seller account, much of it contradicting the official
+specs. Nearly every write endpoint is a full replace that silently resets
+omitted fields; the classic Catalog API is dead on these accounts; workflow
+writes propagate asynchronously. Four tools here were written the obvious way
+and failed or lost data for months before anyone checked.
+
+If you are about to call a VTEX logistics or catalog endpoint, that file will
+save you an afternoon.
 
 ---
 
@@ -10,139 +29,115 @@ A modern, white-label Seller Portal built on top of VTEX native APIs. Replaces t
 
 | Module | Features |
 |--------|----------|
-| **Auth** | VTEX ID login via email OTP (access key) — no Google Cloud required |
+| **Auth** | VTEX ID email OTP (access key). A Google sign-in button also exists but relies on VTEX's headless exchange, which proved unreliable — OTP is the path to use |
 | **Dashboard** | Revenue chart, order KPIs, recent orders |
-| **Catalog** | List / create / edit products & SKUs, inline price & stock editing, brands CRUD, category tree, image upload |
-| **Orders** | Order list with status filters, order detail |
-| **Fulfillment** | Warehouse CRUD, dock CRUD, shipping policies |
-| **Payments** | Order splits with marketplace commission (1.15%) + PSP fee (0.2%), payout calendar, reconciliation table, DAC7 compliance tracking |
-| **Onboarding** | 5-step KYC wizard — legal info, document upload, automated checks, e-signature, VTEX seller account activation |
+| **Catalog** | Products and SKUs, inline price and stock editing, brands, category tree, images |
+| **Orders** | List with status filters, order detail, invoicing (which is what dispatches an order) |
+| **Fulfillment** | Warehouses, docks, shipping policies |
+| **Payments** | Order splits with commission and PSP fee, payout calendar, reconciliation, DAC7 tracking |
+| **Onboarding** | 5-step KYC/KYB wizard ending in seller activation |
+| **MCP server** | 55 tools over the same VTEX wrappers — see [docs/mcp-server.md](docs/mcp-server.md) |
 
 ---
 
 ## Prerequisites
 
-You need **two VTEX accounts**:
+Two VTEX accounts:
 
-| Account | Role | Used for |
-|---------|------|----------|
-| **Marketplace account** | your main marketplace (e.g. `acme-marketplace`) | Reading orders, catalog browsing |
-| **Seller account** | the seller account (e.g. `acme-seller`) | Managing products, SKUs, prices, stock |
+| Account | Used for |
+|---------|----------|
+| **Marketplace** | reading orders, seller records, commissions |
+| **Seller** | products, SKUs, prices, stock, logistics, shipping — everything writable |
 
-All account names are read from `.env.local` — no code edits required.
+The seller account is expected to be a **CatalogV2 / Seller Portal** account.
+That is not a detail: on those accounts the classic Catalog API returns 500 and
+this app routes around it. A standard VTEX store behaves differently.
+
+Every account name and credential is read from `.env.local` at runtime. Pointing
+the portal at a different seller needs no code change.
 
 ---
 
 ## Setup
 
-### 1. Clone and install
-
 ```bash
-git clone https://github.com/Willjeanne/merchantspace.git
+git clone <this repo>
 cd merchantspace
 npm install
-```
-
-### 2. Create environment file
-
-```bash
 cp .env.local.example .env.local
 ```
 
-Then fill in all values (see section below).
+### App Keys
 
-### 3. Create VTEX App Keys
+Create one App Key per account in **VTEX Admin → Account Settings → API Keys**.
 
-You need **two separate App Keys** — one per account.
+**Marketplace key** — for reading orders and sellers:
 
-#### Marketplace App Key (`VTEX_APP_KEY` / `VTEX_APP_TOKEN`)
+- `OMS` → `OMS access` → **Full access**
+- Optionally Seller Register / Marketplace resources, for per-category
+  commissions. Without them those specific tools fail with a clear permission
+  error rather than misleading data.
 
-Go to **VTEX Admin → Account Settings → API Keys** for your **marketplace** account.
+**Seller key** — everything writable:
 
-Required License Manager resources:
-- `OMS` → `Orders` → **Full access**
-- `Catalog` → `Content` → **SKUs** *(needed for image upload)*
-
-#### Seller App Key (`VTEX_SELLER_APP_KEY` / `VTEX_SELLER_APP_TOKEN`)
-
-Go to **VTEX Admin → Account Settings → API Keys** for your **seller** account.
-
-Required License Manager resources:
-- `CatalogV2` → `Management` → **Product Write**
-- `CatalogV2` → `Management` → **Product Read** (or full access)
-- `Logistics` → **Full access** *(for warehouses/docks)*
+- `CatalogV2` → `Management` → **Product Write** (and read)
+- `Logistics` → **Logistics full access** (warehouses, docks, policies, freight tables)
 - `Pricing` → **Full access**
 - `Inventory` → **Full access**
+- `OMS` → `OMS access` → **Notify invoice** and **Change order workflow status**
+- `vtex.catalog-images`, if you want to upload new image bytes. Without it you
+  can still attach images already hosted on `{account}.vtexassets.com`.
 
-> **Tip:** Use the predefined role **"Seller"** as a base and add the missing resources on top.
+> The predefined **Seller** role is a reasonable base; add the missing resources
+> on top of it.
 
-### 4. Configure environment variables
+### Environment variables
 
-Open `.env.local` and set:
+`.env.local.example` lists every variable with comments. Fill in the account
+names, the two key/token pairs, `VTEX_SELLER_ID`, a `NEXTAUTH_SECRET`, and
+`MCP_SERVER_TOKEN` if you intend to use the MCP server.
 
-```env
-# ── Marketplace account ───────────────────────────────────────────────────────
-VTEX_ACCOUNT=your-marketplace-account
-VTEX_APP_KEY=vtexappkey-your-marketplace-account-XXXXXX
-VTEX_APP_TOKEN=<token>
-VTEX_ENVIRONMENT=vtexcommercestable
+`GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` are only needed if you want the
+Google sign-in button to work. Leave them empty and use the access-key OTP.
 
-# ── Seller account ────────────────────────────────────────────────────────────
-VTEX_SELLER_ACCOUNT=your-seller-account
-VTEX_SELLER_APP_KEY=vtexappkey-your-seller-account-XXXXXX
-VTEX_SELLER_APP_TOKEN=<token>
-
-# Seller ID as it appears in the marketplace (check VTEX Admin → Marketplace → Sellers)
-VTEX_SELLER_ID=your-seller-id
-
-# ── Auth ──────────────────────────────────────────────────────────────────────
-# Generate with: openssl rand -base64 32
-NEXTAUTH_SECRET=<random_32_byte_string>
-NEXTAUTH_URL=http://localhost:3000
-
-# ── Public (used client-side) ─────────────────────────────────────────────────
-NEXT_PUBLIC_VTEX_ACCOUNT=your-marketplace-account
-NEXT_PUBLIC_VTEX_SELLER_ACCOUNT=your-seller-account
-```
-
-### 5. Run locally
+### Run
 
 ```bash
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) — you'll be redirected to `/login`.
-
-Log in with any email address that has access to the seller VTEX account. VTEX will send a 6-digit OTP to that email.
-
----
-
-## Adapting to a different VTEX account
-
-To point this portal at a **different seller**, only env vars need to change — no code edits required.
-
-| What changes | Where |
-|---|---|
-| Marketplace account name | `VTEX_ACCOUNT` + `NEXT_PUBLIC_VTEX_ACCOUNT` |
-| Marketplace App Key / Token | `VTEX_APP_KEY` + `VTEX_APP_TOKEN` |
-| Seller account name | `VTEX_SELLER_ACCOUNT` |
-| Seller App Key / Token | `VTEX_SELLER_APP_KEY` + `VTEX_SELLER_APP_TOKEN` |
-| Seller ID (marketplace-side) | `VTEX_SELLER_ID` |
-
-No code changes needed. All account names, endpoints and credentials are read exclusively from env vars at runtime.
+Open [http://localhost:3000](http://localhost:3000). Log in with any email that
+has access to the seller VTEX account — VTEX sends a 6-digit code to it.
 
 ---
 
-## Deploy to Vercel
+## Deploy
+
+Connect the repo in the [Vercel dashboard](https://vercel.com/new) and add the
+env vars under **Project → Settings → Environment Variables**, or:
 
 ```bash
 npm install -g vercel
 vercel
 ```
 
-Or connect the GitHub repo in the [Vercel dashboard](https://vercel.com/new) and add all the env vars above in **Project → Settings → Environment Variables**.
+The app is stateless: no database, no migrations.
 
-The app is stateless — no database, no migrations needed.
+---
+
+## MCP server
+
+`app/api/mcp` exposes 55 tools over the same VTEX wrappers the web app uses, so
+an assistant can read and act on the account in conversation — list orders and
+invoice one, build a shipping policy and its rate table, wire a warehouse
+through to a trade policy, or ask why a policy is not quoting.
+
+It is a normal Route Handler, so there is no separate process: it lives at
+`/api/mcp` on the same deployment.
+
+**[docs/mcp-server.md](docs/mcp-server.md)** covers authentication, connecting a
+claude.ai connector, the full tool inventory, and the tool-list cache that will
+otherwise convince you a deploy did not work.
 
 ---
 
@@ -150,87 +145,71 @@ The app is stateless — no database, no migrations needed.
 
 ```
 app/
-├── (auth)/login/          → OTP login page
-├── (portal)/              → Protected layout (sidebar + topbar)
-│   ├── dashboard/         → KPI cards + charts
-│   ├── catalog/           → Product list, detail/edit, new product
-│   ├── orders/            → Order list + detail
-│   ├── fulfillment/       → Warehouses, docks, shipping policies
-│   ├── payments/          → Order splits, payout calendar, reconciliation, DAC7
-│   ├── onboarding/        → 5-step KYC wizard + seller activation
-│   └── settings/          → (placeholder)
-└── api/auth/              → OTP send/validate, logout route handlers
+├── (auth)/login/          OTP login
+├── (portal)/              protected layout (sidebar + topbar)
+│   ├── dashboard/  catalog/  orders/  fulfillment/  payments/  onboarding/  settings/
+└── api/
+    ├── auth/              OTP send/validate, logout
+    └── mcp/               MCP server route (token-gated)
 
 lib/
 ├── vtex/
-│   ├── client.ts          → vtexFetch (marketplace) + vtexSellerFetch (seller)
-│   ├── catalog.ts         → All catalog API wrappers
-│   ├── orders.ts          → OMS API wrappers
-│   └── payments.ts        → Order splits + commission calculation
-├── config.ts              → Server-side account name constants (from env vars)
-├── actions/               → Next.js Server Actions (forms)
-├── mock/                  → Mock data for demo mode (Adyen settlements, onboarding)
-└── types/                 → TypeScript types for VTEX API responses
+│   ├── client.ts              vtexFetch (marketplace) + vtexSellerFetch (seller)
+│   ├── catalog.ts             products, SKUs, brands, categories, images, warehouses, docks
+│   ├── orders.ts              marketplace and seller-account OMS
+│   ├── shipping-policies.ts   policies CRUD
+│   ├── freight-rates.ts       rate tables by postal-code range
+│   ├── shipping-setup.ts      the warehouse → dock → policy → trade policy chain, and simulation
+│   ├── sellers.ts             seller records and commissions
+│   └── payments.ts            order splits and payout derivation
+├── mcp/
+│   ├── register.ts            wires every tool group
+│   ├── tools/                 one file per domain
+│   └── apps/                  interactive MCP App (create-product form)
+├── actions/                   Server Actions used by the forms
+├── types/                     VTEX response types
+└── mock/                      demo-only data (settlements, onboarding)
 
-proxy.ts                   → Next.js middleware (auth guard)
+proxy.ts                       Next.js middleware — auth guard
 ```
 
-**Data flow:** All VTEX API calls happen server-side (Server Components or Server Actions). App Key / App Token credentials never reach the browser. The user's VTEX session token is stored as an `httpOnly` cookie.
+**Credentials never reach the browser.** Every VTEX call happens in a Server
+Component, Server Action or Route Handler. The user's VTEX session lives in an
+`httpOnly` cookie.
 
 ---
 
-## MCP server
-
-`app/api/mcp` exposes a [Model Context Protocol](https://modelcontextprotocol.io) server, built with [`mcp-handler`](https://www.npmjs.com/package/mcp-handler), with one tool per function in `lib/vtex/{catalog,orders,payments,sellers}.ts` — a near 1:1 mapping onto the VTEX Seller Portal APIs this app wraps (products, SKUs, images, brands, categories, pricing, inventory, warehouses, docks, shipping policies, orders, seller commissions, derived payment/payout data).
-
-It runs as a normal Next.js Route Handler (Streamable HTTP transport), so it's available at `http://localhost:3000/api/mcp` locally and at `https://<your-deployment>/api/mcp` once deployed — no separate process to run.
-
-### Auth
-
-Every request must include `Authorization: Bearer <MCP_SERVER_TOKEN>`. The endpoint calls VTEX with this app's own App Key/Token and can mutate live seller data, so it fails closed: if `MCP_SERVER_TOKEN` is unset, every request is rejected with a 500.
-
-```env
-MCP_SERVER_TOKEN=<generate with: openssl rand -base64 32>
-```
-
-### Connecting a client
-
-Streamable HTTP clients can connect directly:
-
-```json
-{
-  "mcpServers": {
-    "merchantspace": {
-      "url": "http://localhost:3000/api/mcp",
-      "headers": { "Authorization": "Bearer <MCP_SERVER_TOKEN>" }
-    }
-  }
-}
-```
-
-For stdio-only clients, use [`mcp-remote`](https://www.npmjs.com/package/mcp-remote):
-
-```json
-{
-  "mcpServers": {
-    "merchantspace": {
-      "command": "npx",
-      "args": ["-y", "mcp-remote", "http://localhost:3000/api/mcp", "--header", "Authorization: Bearer <MCP_SERVER_TOKEN>"]
-    }
-  }
-}
-```
-
-### Write tools
-
-Most tools mutate live VTEX data (create/update/delete products, prices, stock, brands, warehouses, docks). Two image tools (`vtex_add_sku_image_by_url`, `vtex_add_sku_image_by_file`) additionally require a live VTEX session token (`vtexAuthToken`, the `VtexIdclientAutCookie` value) — App Key/Token cannot authenticate that endpoint — since the MCP server has no browser session of its own.
-
 ## Known limitations
 
-- **Image upload** currently supports URL-based import only. File upload (multipart) is not yet implemented.
-- **Multi-seller** is not supported — this is a mono-seller portal by design.
-- The **Payments** module fetches real VTEX orders and applies configurable commission rates, but payout disbursement is simulated (no live Adyen Reporting API integration yet).
-- The **Onboarding** KYC wizard is fully functional for demo and UI purposes; production use requires connecting a real KYB provider and e-signature service.
+- **Uploading new image bytes** needs the `vtex.catalog-images` resource on the
+  seller App Key. The code is complete; without the grant the upload returns 403
+  and says so. Attaching an already-hosted image works with no extra permission.
+- **Single seller.** The seller account is fixed in env vars, so each user needs
+  their own deployment. Multi-account is the main piece of work not done.
+- **Per-category seller commissions** need Seller Register resources on the
+  marketplace key. Account-level rates are available without them.
+- **Payments** reads real orders and applies configurable rates, but payout
+  disbursement is simulated — no live Adyen Reporting integration.
+- **Onboarding** is complete as a UI and demo flow; production use needs a real
+  KYB provider and e-signature service.
+- **No rate-limit backoff.** The wrapper raises a typed error without retrying,
+  which is fine while a human triggers operations one at a time. Add backoff
+  before adding any batch tool.
+
+---
+
+## Contributing
+
+Two conventions matter more than style here, both learned the hard way:
+
+1. **Every VTEX update is read-merge-write.** Read the record, merge your change,
+   send the whole thing back. A partial write returns 200 and destroys the rest of
+   the object.
+2. **Verify against a live account.** `tsc` and `next build` prove nothing about
+   these APIs. Several tools passed both and failed on every real call.
+
+[docs/session-log.md](docs/session-log.md) records how each decision was reached,
+in French.
 
 ---
 
