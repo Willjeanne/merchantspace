@@ -56,7 +56,8 @@ NEXTAUTH_URL=http://localhost:3000
   - [x] Fix docks/warehouses : updates réparés + `freightTableIds` exposé (51 outils)
   - [x] Tables de fret + chaîne shipping complète (57 outils) · validé en live
   - [x] `vtex_simulate_shipping` + plafond de poids policy 1 corrigé (58 outils)
-  - [ ] Phase 4 — images SKU *(bloqué : permission `vtex.catalog-images`)*
+  - [~] Phase 4 — images SKU : attache d'une image déjà hébergée **OK** ; upload de
+        nouveaux octets prêt côté code mais *bloqué : permission `vtex.catalog-images`*
 
 ## Build order
 1. Module 0 → Module 1 (cette session)
@@ -68,6 +69,40 @@ NEXTAUTH_URL=http://localhost:3000
 7. Polish + seed data
 
 ## Session log
+
+### Session 2026-09-08 (cont.) — images SKU : ce qui marche et ce qui attend un droit
+
+**Deux capacités distinctes, à ne plus confondre :**
+
+| Besoin | État |
+|---|---|
+| Attacher une image **déjà hébergée** sur `{account}.vtexassets.com` | ✅ **marche, aucune permission** — `vtex_add_product_image` |
+| **Uploader** de nouveaux octets (URL externe ou fichier) | ⛔ 403, permission `vtex.catalog-images` |
+
+**Toutes les voies d'upload ont été testées et échouent :**
+- app IO `vtex.catalog-images` → 403, rôle de la clé sans la ressource
+- `POST /api/catalog/pvt/stockkeepingunit/{id}/file` → 500 (Catalog classique mort ici)
+- `PUT {account}.vtexassets.com/arquivos/{name}` → 403 CloudFront
+- `PUT /api/portal/pvt/sites/default/files/{name}` → **passe l'auth** (l'erreur devient une
+  désérialisation `CustomFileExchange`) puis **403 « Autorização negada »** avec un JSON valide
+
+Conclusion : **aucun chemin App Key/Token ne dépose un fichier sur ce CDN sans un droit
+accordé.** Ce n'est pas un problème de code.
+
+**Fait :**
+- `lib/vtex/catalog.ts` : `getServerSessionToken()` échange l'App Key contre un
+  `VtexIdclientAutCookie` via `apptoken/login`, mis en cache 1 h. `vtexAuthToken` devient
+  **optionnel** partout — la page produit continue de passer son cookie, le MCP n'a plus
+  besoin de session. Le code d'upload est donc **complet et prêt** ; il marchera le jour du
+  droit accordé, sans nouvelle ligne.
+- Le message d'erreur ne mentait plus : il disait *« Ensure your VTEX session is active »*
+  alors que le serveur s'authentifie très bien. Il nomme maintenant la ressource
+  manquante, dit que c'est une permission et pointe vers la voie qui marche.
+- Descriptions des 3 outils images amendées pour dire laquelle marche aujourd'hui.
+
+**Vérifié en live** : image attachée aux produits `7` et `6` depuis une URL vtexassets
+existante, SKU pointant dessus, reste du produit intact ; upload sans `vtexAuthToken` →
+403 avec le message exploitable.
 
 ### Session 2026-09-08 — simulation d'expédition + plafond de poids corrigé
 

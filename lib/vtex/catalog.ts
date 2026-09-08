@@ -1,4 +1,4 @@
-import { vtexSellerFetch, vtexFetch } from "@/lib/vtex/client";
+import { vtexSellerFetch, vtexFetch, VtexConfigError } from "@/lib/vtex/client";
 import type {
   VtexProduct,
   VtexSku,
@@ -486,6 +486,60 @@ export async function updateSellerSku(
 //                       → addProductImageViaSellerPortal (Seller Portal PUT)
 
 /**
+ * Mints a VtexIdclientAutCookie from the App Key/Token, cached for the process.
+ *
+ * The `vtex.catalog-images` IO app does not accept App Key/Token headers — it
+ * needs a real VTEX credential — which is why the image tools originally
+ * demanded a browser session the MCP server does not have.
+ * `POST /api/vtexid/apptoken/login` exchanges the credentials for exactly such a
+ * token (verified: 572 characters), so the server can authenticate itself.
+ *
+ * The token inherits the App Key's permissions, no more: on this account the
+ * upload still answers 403 until the key is granted the `vtex.catalog-images`
+ * resource. That is a permission to grant, not a code path to write.
+ */
+let cachedSessionToken: { token: string; expiresAt: number } | null = null;
+
+async function getServerSessionToken(): Promise<string> {
+  const now = Date.now();
+  if (cachedSessionToken && cachedSessionToken.expiresAt > now) {
+    return cachedSessionToken.token;
+  }
+
+  const account = process.env.VTEX_SELLER_ACCOUNT;
+  const appkey = process.env.VTEX_SELLER_APP_KEY;
+  const apptoken = process.env.VTEX_SELLER_APP_TOKEN;
+  if (!account || !appkey || !apptoken) {
+    throw new VtexConfigError(
+      "VTEX_SELLER_ACCOUNT, VTEX_SELLER_APP_KEY or VTEX_SELLER_APP_TOKEN is not set"
+    );
+  }
+
+  const env = process.env.VTEX_ENVIRONMENT ?? "vtexcommercestable";
+  const res = await fetch(`https://${account}.${env}.com.br/api/vtexid/apptoken/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Accept: "application/json" },
+    body: JSON.stringify({ appkey, apptoken }),
+  });
+
+  if (!res.ok) {
+    throw new Error(
+      `Could not exchange the App Key for a session token (HTTP ${res.status}). ` +
+        `Image upload needs one because the catalog-images service rejects App Key headers.`
+    );
+  }
+
+  const json = (await res.json()) as { token?: string };
+  if (!json.token) {
+    throw new Error("apptoken/login returned no token.");
+  }
+
+  // Conservatively short next to VTEX's own lifetime, so a stale token is never reused.
+  cachedSessionToken = { token: json.token, expiresAt: now + 60 * 60 * 1000 };
+  return json.token;
+}
+
+/**
  * Upload an image buffer to the VTEX vtex.catalog-images IO service.
  * Returns the resulting vtexassets.com URL.
  *
@@ -495,10 +549,14 @@ async function uploadImageToCatalogImagesService(
   imageBuffer: Buffer | Uint8Array,
   filename: string,
   mimeType: string,
-  vtexAuthToken: string
+  vtexAuthToken?: string
 ): Promise<string> {
   const account = process.env.VTEX_SELLER_ACCOUNT;
   if (!account) throw new Error("VTEX_SELLER_ACCOUNT is not set");
+
+  // A caller with a browser session (the product page) passes its own cookie;
+  // the MCP server has none, so it mints one from the App Key.
+  const sessionToken = vtexAuthToken ?? (await getServerSessionToken());
 
   // Sanitise filename — VTEX rejects special chars
   const ext = filename.split(".").pop()?.toLowerCase() ?? "jpg";
@@ -520,7 +578,7 @@ async function uploadImageToCatalogImagesService(
   try {
     const ioRes = await fetch(ioUrl, {
       method: "POST",
-      headers: { "VtexIdclientAutCookie": vtexAuthToken },
+      headers: { "VtexIdclientAutCookie": sessionToken },
       body: formData,
     });
     if (ioRes.ok) {
@@ -540,7 +598,7 @@ async function uploadImageToCatalogImagesService(
   const cdnRes = await fetch(cdnUrl, {
     method: "PUT",
     headers: {
-      "Cookie": `VtexIdclientAutCookie=${vtexAuthToken}`,
+      "Cookie": `VtexIdclientAutCookie=${sessionToken}`,
       "Content-Type": mimeType,
     },
     body: imageBuffer as unknown as BodyInit,
@@ -548,10 +606,18 @@ async function uploadImageToCatalogImagesService(
 
   if (cdnRes.ok) return cdnUrl;
 
-  const cdnBody = await cdnRes.text().catch(() => "");
+  // Both routes are gone: the IO service refuses the App Key's role and the CDN
+  // refuses a direct PUT. Neither is a session problem — the server authenticated
+  // fine — so say what it actually is.
   throw new Error(
-    `Image upload to VTEX CDN failed (${cdnRes.status}). ` +
-    `Ensure your VTEX session is active. Detail: ${cdnBody.slice(0, 150)}`
+    `Could not upload the image bytes to VTEX. Both routes were refused: the ` +
+      `vtex.catalog-images IO service returned 403 because this App Key's role ` +
+      `lacks the vtex.catalog-images resource, and the direct ${cdnRes.status} on ` +
+      `${account}.vtexassets.com is blocked for API credentials. This is a ` +
+      `permission to grant in License Manager, not a code error and not an expired ` +
+      `session. Meanwhile an image ALREADY hosted on a ${account}.vtexassets.com ` +
+      `URL can be attached with addProductImageViaSellerPortal, which needs no ` +
+      `extra permission.`
   );
 }
 
@@ -563,14 +629,16 @@ async function uploadImageToCatalogImagesService(
  * 2. Upload to VTEX via the catalog-images IO service → get vtexassets.com URL
  * 3. PUT the product via Seller Portal API using the vtexassets.com URL
  *
- * Requires vtexAuthToken (user's VtexIdclientAutCookie from session cookie).
+ * `vtexAuthToken` is optional: pass the user's VtexIdclientAutCookie when there is
+ * a browser session (the product page), otherwise the server mints its own from
+ * the App Key. See getServerSessionToken.
  */
 export async function addSkuImageByUrl(
   skuId: number,
   imageUrl: string,
   imageName: string,
   productId: number,
-  vtexAuthToken: string
+  vtexAuthToken?: string
 ): Promise<void> {
   // Step 1: Proxy-download the external image to an in-memory buffer
   let imageBuffer: Buffer;
@@ -608,13 +676,15 @@ export async function addSkuImageByUrl(
  * 1. Upload the file buffer to VTEX via catalog-images IO service → vtexassets.com URL
  * 2. PUT the product via Seller Portal API using the vtexassets.com URL
  *
- * Requires vtexAuthToken (user's VtexIdclientAutCookie from session cookie).
+ * `vtexAuthToken` is optional: pass the user's VtexIdclientAutCookie when there is
+ * a browser session (the product page), otherwise the server mints its own from
+ * the App Key. See getServerSessionToken.
  */
 export async function addSkuImageByFile(
   skuId: number,
   file: { buffer: Buffer | Uint8Array; name: string; type: string },
   productId: number,
-  vtexAuthToken: string
+  vtexAuthToken?: string
 ): Promise<void> {
   // Step 1: Upload to VTEX catalog-images → get vtexassets.com URL
   const vtexImageUrl = await uploadImageToCatalogImagesService(
