@@ -55,6 +55,7 @@ NEXTAUTH_URL=http://localhost:3000
   - [x] Phase 3 — shipping policies read/create/update (49 outils) · validé en live
   - [x] Fix docks/warehouses : updates réparés + `freightTableIds` exposé (51 outils)
   - [x] Tables de fret + chaîne shipping complète (57 outils) · validé en live
+  - [x] `vtex_simulate_shipping` + plafond de poids policy 1 corrigé (58 outils)
   - [ ] Phase 4 — images SKU *(bloqué : permission `vtex.catalog-images`)*
 
 ## Build order
@@ -67,6 +68,38 @@ NEXTAUTH_URL=http://localhost:3000
 7. Polish + seed data
 
 ## Session log
+
+### Session 2026-09-08 — simulation d'expédition + plafond de poids corrigé
+
+**Déclencheur :** les tests en live depuis claude.ai ont réussi, mais la session a émis
+deux affirmations fausses faute de pouvoir vérifier — d'où l'outil de simulation.
+
+**Ce qu'elle a dit de faux :**
+1. « `numberOfItemsPerShipment` n'est pas modifiable par ces outils » → **faux**, il est
+   exposé dans `vtex_update_shipping_policy` (vérifié dans le schéma déployé). Elle
+   conseillait de recréer la policy pour rien.
+2. « avec 1 article par expédition, le port sera facturé plusieurs fois » → **non
+   reproductible ici** : simulation à 1, 2 et 5 articles, le port reste fixe.
+
+**Le vrai problème, que personne n'avait vu :** `weightEnd: 500` sur la table de la
+policy 1, avec un SKU à 300 g → **Standard Delivery disparaissait du checkout dès 2
+articles**, sans erreur ni message. C'est ce qui casse une démo.
+Corrigé : lignes élargies à `0–1000000`, vérifié jusqu'à 20 articles.
+
+**🔴 L'unité de poids est le GRAMME — établi**, pas déduit : 3 × 300 g = 900 sortait de la
+plage `0–500` et faisait tomber l'option ; à 1 article elle apparaissait.
+
+**Fait :**
+- `lib/vtex/shipping-setup.ts` : `simulateShipping()` → `POST
+  /api/checkout/pub/orderForms/simulation` sur le compte seller. Renvoie les options que
+  verrait un client, avec prix et délai. Distingue « SKU introuvable » (problème
+  catalogue) de « aucune option » (problème shipping), et pointe vers la piste des plages
+  de poids.
+- `lib/mcp/tools/shipping.ts` : `vtex_simulate_shipping`. **58 outils.**
+
+**Vérifié en live** : 3 options à x1 et à x20 ; CP `00001` → Standard Delivery absente
+(sa plage démarre à 10000), les deux autres présentes ; SKU inexistant → `itemFound:
+false` avec la note qui oriente vers le catalogue.
 
 ### Session 2026-09-03 (cont.) — tables de fret + chaîne shipping complète
 
@@ -497,6 +530,24 @@ besoin. À rouvrir seulement si la démo l'exige.
      `weekendAndHolidays` a effacé les flags.
   Donc : lire le record, fusionner, tout réémettre. Un PUT partiel détruit silencieusement
   le reste de la politique. C'est `updateShippingPolicy()` qui s'en charge.
+- **🔴 La simulation d'expédition doit être appelée SANS `?sc=`.** Avec `?sc=1` le compte
+  seller répond **500 `CHK0290.12`** *« A communication error with Sales Channel has
+  occurred »* ; sans le paramètre, la même requête réussit. `seller: "1"` désigne le
+  compte lui-même.
+- **🔴 La plage de poids fait partie de l'IDENTITÉ d'une ligne de fret.** Élargir
+  `weightEnd` n'édite pas la ligne : ça en crée une seconde à côté. Pour élargir : poser
+  la ligne large, **puis** supprimer l'ancienne (dans cet ordre, pour ne jamais laisser de
+  trou de couverture).
+- **🔴 `minimumValueInsurance` s'ajoute au prix coté.** La ligne d'origine de la policy 1
+  portait `cost 3` + `insurance 1` et la simulation cotait **4,00 €** ; les lignes écrites
+  par le MCP portent `insurance 0` et cotent exactement leur prix (6 → 6,00 €). Notre
+  outil n'envoie pas ce champ, donc il retombe à 0 — un tarif posé par API cote donc
+  exactement le prix demandé, mais réécrire une ligne existante en fait perdre
+  l'assurance.
+- **Le garde-fou de chevauchement ne voit qu'un seul appel.** `assertNoOverlap()` compare
+  les lignes d'une même requête entre elles ; il ne peut pas les comparer à l'existant,
+  puisque la table n'est pas lisible en entier. Deux appels séparés peuvent donc créer un
+  chevauchement — c'est ce qui est arrivé volontairement entre les policies 2 et 3.
 - **🔴 Les codes postaux des tables de fret sont stockés sur 8 chiffres, complétés à
   gauche.** `10000` → `"00010000"`. Une saisie humaine à 5 chiffres non complétée désigne
   une plage totalement différente. `padPostalCode()` s'en charge.
