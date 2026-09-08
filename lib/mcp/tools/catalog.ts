@@ -216,7 +216,7 @@ export function registerCatalogTools(server: McpServer) {
     {
       title: "Add SKU image from a URL",
       description:
-        "Downloads an external image, re-uploads it to VTEX (catalog-images IO service, falling back to the vtexassets.com CDN), then attaches it to the product via the Seller Portal PUT. Requires a live VTEX session token — App Key/Token cannot be used for this endpoint.",
+        "Downloads an external image, re-uploads it to VTEX (catalog-images IO service, falling back to the vtexassets.com CDN), then attaches it to the product. The server authenticates itself, so no session token is needed. NOTE: on this account the upload currently fails with 403 because the App Key lacks the vtex.catalog-images resource — a permission to grant. Until then, use vtex_add_product_image with an image already hosted on a vtexassets.com URL, which needs no permission and works today.",
       inputSchema: z.object({
         skuId: z.number().int(),
         imageUrl: z.string().url(),
@@ -224,7 +224,10 @@ export function registerCatalogTools(server: McpServer) {
         productId: z.number().int(),
         vtexAuthToken: z
           .string()
-          .describe("VtexIdclientAutCookie session token of a logged-in admin/seller user"),
+          .optional()
+          .describe(
+            "Optional. Leave unset: the server mints its own credential from the App Key. Only pass one if you have a specific logged-in user's VtexIdclientAutCookie."
+          ),
       }),
     },
     safe(({ skuId, imageUrl, imageName, productId, vtexAuthToken }) =>
@@ -237,7 +240,7 @@ export function registerCatalogTools(server: McpServer) {
     {
       title: "Add SKU image from raw file bytes",
       description:
-        "Uploads a base64-encoded image file to VTEX (catalog-images IO service) then attaches it to the product via the Seller Portal PUT. Requires a live VTEX session token.",
+        "Uploads a base64-encoded image file to VTEX (catalog-images IO service) then attaches it to the product. The server authenticates itself, so no session token is needed. NOTE: on this account the upload currently fails with 403 because the App Key lacks the vtex.catalog-images resource — a permission to grant. Until then, use vtex_add_product_image with an image already hosted on a vtexassets.com URL.",
       inputSchema: z.object({
         skuId: z.number().int(),
         fileBase64: z.string().describe("Base64-encoded image bytes"),
@@ -246,7 +249,10 @@ export function registerCatalogTools(server: McpServer) {
         productId: z.number().int(),
         vtexAuthToken: z
           .string()
-          .describe("VtexIdclientAutCookie session token of a logged-in admin/seller user"),
+          .optional()
+          .describe(
+            "Optional. Leave unset: the server mints its own credential from the App Key. Only pass one if you have a specific logged-in user's VtexIdclientAutCookie."
+          ),
       }),
     },
     safe(({ skuId, fileBase64, fileName, mimeType, productId, vtexAuthToken }) =>
@@ -264,7 +270,7 @@ export function registerCatalogTools(server: McpServer) {
     {
       title: "Attach an already-hosted image to a product",
       description:
-        "PUT /api/catalog-seller-portal/products/{productId} — appends an image (must already be a vtexassets.com URL) to the product and all its SKUs.",
+        "PUT /api/catalog-seller-portal/products/{productId} — attaches an image that is ALREADY hosted on a vtexassets.com URL to a product, and points every SKU at it. Needs no extra permission and works today, unlike the two upload tools. The URL must be under {account}.vtexassets.com; anything else is rejected with ImageUrlInvalidException. A good source is another product's existing image, from vtex_get_product_full.",
       inputSchema: z.object({
         productId: z.number().int(),
         imageUrl: z.string().url(),
