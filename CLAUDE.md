@@ -60,6 +60,7 @@ NEXTAUTH_URL=http://localhost:3000
         nouveaux octets prêt côté code mais *bloqué : permission `vtex.catalog-images`*
   - [x] Audit des 29 lectures + `vtex_update_product` réparé, 2 outils morts retirés
         (56 outils)
+  - [x] Audit des écritures : `update_sku` réparé, `delete_brand` retiré (55 outils)
 
 ## Build order
 1. Module 0 → Module 1 (cette session)
@@ -71,6 +72,51 @@ NEXTAUTH_URL=http://localhost:3000
 7. Polish + seed data
 
 ## Session log
+
+### Session 2026-09-08 (cont.) — audit des écritures : 3 outils morts de plus
+
+Même méthode que pour les lectures, sur `franceretailer1388` : chaque création suivie de
+sa suppression, chaque modification suivie du retour à la valeur d'origine.
+
+**Ce qui marche** (vérifié aller-retour) : `set_sku_inventory` (708 → 42 → 708),
+`set_sku_price` (3,09 → 9,99 → 3,09), `create_brand`, `update_brand`,
+`create_warehouse` + `delete_warehouse`, `create_dock` + `delete_dock`,
+`delete_sku_image`, `create_shipping_policy` (+ DELETE 204 par API),
+`open_create_product_form`.
+
+**Trois outils morts de plus, tous sur le Catalog classique :**
+| Outil | Cause | Suite |
+|---|---|---|
+| `vtex_update_product` | PUT `/catalog/pvt/product/{id}` → 500 | **réparé** sur `/catalog-seller-portal/products/{id}` |
+| `vtex_update_sku` | GET+PUT `/catalog/pvt/stockkeepingunit/{id}` → 500 | **réparé** via le produit Seller Portal |
+| `vtex_delete_brand` | DELETE `/catalog/pvt/brand/{id}` → 500 | **retiré** |
+
+**🔴 On ne supprime pas dans VTEX** — marques, catégories, produits se **désactivent**.
+Toutes les routes DELETE testées répondent 405, la classique 500. J'ai perdu du temps à
+le sonder au lieu de le savoir. `vtex_delete_brand` est donc retiré et
+`vtex_update_brand` (`IsActive: false`) est la voie. En revanche `delete_warehouse`,
+`delete_dock`, `delete_sku_image` et le DELETE des shipping policies **marchent
+réellement** — ce sont des entités logistiques, pas catalogue.
+
+**Autres constats :**
+- `vtex_start_handling_order` sur `FRN-1636850500001-01` → `accepted-pending`, pas
+  l'`OMS003` de l'autre commande. Deux commandes au même statut, deux réponses. La
+  commande **n'a pas bougé** (`lastChange` inchangé) et le garde-fou l'a bien rapporté :
+  il couvre les deux cas.
+- `POST /seller-register/pvt/sellers` → **404**, pas une permission comme consigné avant.
+  Le GET fait un 302 vers l'admin, le POST n'existe pas. Description corrigée.
+- `upsert_seller_commissions` **déversait du HTML brut** dans le résultat : le garde-fou
+  `assertJsonResponse` ne couvre que les réponses 2xx, et un 4xx/5xx en HTML passait par
+  la branche d'erreur qui recopie le corps. `describeErrorBody()` ajouté.
+- Incohérences d'arguments qui m'ont fait trébucher (et feront trébucher un modèle) :
+  `skuId` est une **chaîne** dans price/inventory et un **entier** ailleurs ;
+  `update_brand` prend ses champs à plat alors que `update_product`/`update_sku` les
+  imbriquent sous `updates`. Signalé, non corrigé.
+
+**55 outils.** Compte laissé propre : warehouse, dock, policy et images de test
+supprimés, prix et stock remis à l'identique. **Un seul résidu** : la marque `8`
+« AUDIT-TEMP-2 », inactive et invisible dans les listes, que VTEX ne permet pas de
+supprimer.
 
 ### Session 2026-09-08 (cont.) — audit des 29 lectures, 3 outils morts trouvés
 

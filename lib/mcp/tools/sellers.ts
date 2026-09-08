@@ -68,7 +68,7 @@ export function registerSellerTools(server: McpServer) {
     {
       title: "Create or update seller",
       description:
-        "POST /seller-register/pvt/sellers — registers or updates a seller in the marketplace account via the Seller Register API. Uses marketplace credentials.",
+        "POST /seller-register/pvt/sellers — registers or updates a seller in the marketplace account. NOTE: on this marketplace account the route answers 404 for POST (while GET redirects to the Admin login), so this tool cannot currently succeed — the Seller Register app looks absent or unavailable to this App Key, which is a provisioning matter rather than a code one. vtex_list_sellers and vtex_get_seller read the same sellers through the Catalog System surface, which does work.",
       inputSchema: sellerPayload,
     },
     safe(createOrUpdateSeller)
